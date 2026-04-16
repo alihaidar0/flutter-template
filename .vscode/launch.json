@@ -1,0 +1,35 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Web server — accessible at http://localhost:8080 from the host.
+      // Port 8080 is forwarded by devcontainer.json automatically.
+      "name": "Flutter (web server)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "-d", "web-server",
+        "--web-port", "8080",
+        "--web-hostname", "0.0.0.0"
+      ]
+    },
+    {
+      // Chrome — only works on linux/amd64 (Google Chrome is installed in the image).
+      // Use the web server target above on Apple Silicon (linux/arm64).
+      "name": "Flutter (Chrome)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": ["-d", "chrome"]
+    },
+    {
+      // Android — requires a connected device or a host-side emulator reachable
+      // via ADB. See README for emulator setup instructions.
+      "name": "Flutter (Android)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart"
+    }
+  ]
+}

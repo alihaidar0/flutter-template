@@ -1,0 +1,201 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    paths-ignore:
+      - "**.md"
+      - ".gitignore"
+      - "docs/**"
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Tier detection ───────────────────────────────────────────────────────────
+  # Tier 1: no pubspec.yaml          → skip everything, CI passes automatically
+  # Tier 2: pubspec.yaml only        → flutter doctor only
+  # Tier 3: pubspec.yaml + lock file → full CI: format, analyze, test, audit, doctor
+  detect:
+    name: Detect project tier
+    runs-on: ubuntu-latest
+    outputs:
+      tier: ${{ steps.check.outputs.tier }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Determine project tier
+        id: check
+        run: |
+          echo "──────────────────────────────────────────"
+          echo "  Detecting project tier..."
+          echo "──────────────────────────────────────────"
+
+          if [[ -f "pubspec.yaml" && -f "pubspec.lock" ]]; then
+            echo "tier=3" >> "$GITHUB_OUTPUT"
+            echo "Tier 3 — pubspec.yaml + pubspec.lock found: full CI active"
+          elif [[ -f "pubspec.yaml" ]]; then
+            echo "tier=2" >> "$GITHUB_OUTPUT"
+            echo "Tier 2 — pubspec.yaml found (no lock): flutter doctor only"
+          else
+            echo "tier=1" >> "$GITHUB_OUTPUT"
+            echo "Tier 1 — no pubspec.yaml: all Flutter checks skipped"
+            echo "  Run 'flutter create .' inside the container to initialise."
+          fi
+
+  # ── Format ───────────────────────────────────────────────────────────────────
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    needs: detect
+    if: >
+      needs.detect.outputs.tier == '3' &&
+      (github.event.pull_request.draft == false || github.event_name != 'pull_request')
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: dart format --set-exit-if-changed .
+
+  # ── Analyze ──────────────────────────────────────────────────────────────────
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    needs: detect
+    if: >
+      needs.detect.outputs.tier == '3' &&
+      (github.event.pull_request.draft == false || github.event_name != 'pull_request')
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --fatal-infos
+
+  # ── Test ─────────────────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [detect, format, analyze]
+    if: >
+      always() &&
+      needs.detect.outputs.tier == '3' &&
+      needs.format.result == 'success' &&
+      needs.analyze.result == 'success'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Run tests with coverage
+        run: |
+          if [[ -d "test" ]]; then
+            flutter test --coverage
+          else
+            echo "No test/ directory — skipping flutter test"
+            echo "Add tests under test/ when you are ready."
+          fi
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: hashFiles('coverage/lcov.info') != ''
+        with:
+          name: coverage-report
+          path: coverage/lcov.info
+          retention-days: 7
+
+  # ── Security audit ───────────────────────────────────────────────────────────
+  audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+    needs: detect
+    if: >
+      needs.detect.outputs.tier == '3' &&
+      (github.event.pull_request.draft == false || github.event_name != 'pull_request')
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart pub audit
+
+  # ── Flutter doctor ───────────────────────────────────────────────────────────
+  doctor:
+    name: Flutter doctor
+    runs-on: ubuntu-latest
+    needs: detect
+    if: needs.detect.outputs.tier == '2' || needs.detect.outputs.tier == '3'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter doctor -v
+
+  # ── CI gate ──────────────────────────────────────────────────────────────────
+  # Single required status check for branch protection.
+  # Passes automatically on tier 1 (fresh template — nothing to check yet).
+  ci-passed:
+    name: CI passed
+    runs-on: ubuntu-latest
+    needs: [detect, format, analyze, test, audit, doctor]
+    if: always()
+    steps:
+      - name: Evaluate results
+        run: |
+          echo "──────────────────────────────────────────"
+          echo "  CI gate — evaluating job results"
+          echo "──────────────────────────────────────────"
+
+          TIER="${{ needs.detect.outputs.tier }}"
+
+          if [[ "$TIER" == "1" ]]; then
+            echo "Tier 1 — fresh template, no pubspec.yaml"
+            echo "All Flutter checks skipped — CI passes automatically."
+            echo "Run 'flutter create .' to initialise your project."
+            exit 0
+          fi
+
+          echo "Tier $TIER detected — evaluating check results"
+          echo ""
+
+          FAILED=0
+
+          check_job() {
+            local name="$1"
+            local result="$2"
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              echo "FAIL  $name: $result"
+              FAILED=1
+            elif [[ "$result" == "skipped" ]]; then
+              echo "SKIP  $name: skipped"
+            else
+              echo "PASS  $name: $result"
+            fi
+          }
+
+          check_job "format"  "${{ needs.format.result }}"
+          check_job "analyze" "${{ needs.analyze.result }}"
+          check_job "test"    "${{ needs.test.result }}"
+          check_job "audit"   "${{ needs.audit.result }}"
+          check_job "doctor"  "${{ needs.doctor.result }}"
+
+          echo ""
+          if [[ "$FAILED" == "1" ]]; then
+            echo "CI gate FAILED — see failed jobs above"
+            exit 1
+          fi
+          echo "CI gate PASSED"

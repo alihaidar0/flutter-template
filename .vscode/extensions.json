@@ -1,0 +1,31 @@
+{
+  "recommendations": [
+    // ── Required: Dev Containers ─────────────────────────────────────────────
+    // Enables the "Reopen in Container" prompt when you open this folder.
+    "ms-vscode-remote.remote-containers",
+
+    // ── Flutter & Dart ───────────────────────────────────────────────────────
+    "dart-code.flutter",
+    "dart-code.dart-code",
+
+    // ── Git ──────────────────────────────────────────────────────────────────
+    "eamodio.gitlens",
+    "mhutchie.git-graph",
+
+    // ── Docker ───────────────────────────────────────────────────────────────
+    "ms-azuretools.vscode-docker",
+
+    // ── Utilities ────────────────────────────────────────────────────────────
+    "mikestead.dotenv",
+    "redhat.vscode-yaml",
+    "PKief.material-icon-theme",
+    "aaron-bond.better-comments",
+    "usernamehw.errorlens",
+    "streetsidesoftware.code-spell-checker",
+    "oderwat.indent-rainbow",
+
+    // ── AI ───────────────────────────────────────────────────────────────────
+    "GitHub.copilot",
+    "GitHub.copilot-chat"
+  ]
+}

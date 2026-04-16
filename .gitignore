@@ -1,0 +1,56 @@
+# ── Flutter / Dart ────────────────────────────────────────────────────────────
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+.packages
+build/
+pubspec.lock
+
+# ── Android ───────────────────────────────────────────────────────────────────
+**/android/local.properties
+**/android/.gradle/
+**/android/key.properties
+**/android/app/upload-keystore.jks
+**/android/app/google-services.json
+
+# ── iOS ───────────────────────────────────────────────────────────────────────
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/ios/GoogleService-Info.plist
+
+# ── Web ───────────────────────────────────────────────────────────────────────
+lib/generated_plugin_registrant.dart
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+google-services.json
+GoogleService-Info.plist
+**/assets/secrets/
+
+# ── Node ──────────────────────────────────────────────────────────────────────
+node_modules/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Editor ────────────────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*~
+
+# ── Coverage ──────────────────────────────────────────────────────────────────
+coverage/
+
+# ── Repomix ───────────────────────────────────────────────────────────────────
+flutter-template-code.xml

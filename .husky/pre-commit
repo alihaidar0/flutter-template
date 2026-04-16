@@ -1,0 +1,16 @@
+# Skip all checks if Flutter has not been initialised yet.
+# Run `flutter create .` first, then `flutter pub get` to activate these hooks.
+if [ ! -f "pubspec.yaml" ]; then
+  echo "ℹ️  No pubspec.yaml found — pre-commit checks skipped (run flutter create . first)"
+  exit 0
+fi
+
+# ── Dart format check ─────────────────────────────────────────────────────────
+# Fails if any staged Dart file is not formatted.
+# Fix with: dart format .
+dart format --set-exit-if-changed .
+
+# ── Static analysis ───────────────────────────────────────────────────────────
+# Fails on any error or warning reported by the Dart analyser.
+# Fix with: flutter analyze
+flutter analyze

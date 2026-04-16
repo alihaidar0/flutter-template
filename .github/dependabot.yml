@@ -1,0 +1,83 @@
+version: 2
+updates:
+  # ── GitHub Actions ──────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    target-branch: "main"
+    rebase-strategy: "auto"
+    assignees:
+      - "alihaidar0"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      github-actions-all:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
+
+  # ── Dart / Flutter pub packages ─────────────────────────────────────────────
+  # Active once pubspec.yaml exists in the repository root.
+  - package-ecosystem: "pub"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    target-branch: "main"
+    rebase-strategy: "auto"
+    assignees:
+      - "alihaidar0"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "flutter"
+    open-pull-requests-limit: 5
+
+  # ── npm (husky + commitlint only) ───────────────────────────────────────────
+  # Node is intentionally frozen at v24 LTS. All other npm packages are
+  # auto-updated. Bump Node manually when v26 LTS is released and tested.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    target-branch: "main"
+    rebase-strategy: "auto"
+    assignees:
+      - "alihaidar0"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+    ignore:
+      # Node version is frozen at 24 LTS — do not bump automatically.
+      - dependency-name: "node"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+    groups:
+      commitlint:
+        patterns:
+          - "@commitlint/*"
+      npm-all:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "@commitlint/*"
+    open-pull-requests-limit: 5

@@ -1,0 +1,104 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "android/**"
+      - "ios/**"
+      - "web/**"
+      - ".github/workflows/build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ── Guard: skip entirely if project not yet initialised ───────────────────
+  detect:
+    name: Detect project
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check for pubspec.lock
+        id: check
+        run: |
+          if [[ -f "pubspec.yaml" && -f "pubspec.lock" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "Project initialised — builds will run"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No pubspec.yaml / pubspec.lock — skipping all builds"
+          fi
+
+  # ── Android APK ──────────────────────────────────────────────────────────────
+  build-apk:
+    name: Android APK
+    runs-on: ubuntu-latest
+    needs: detect
+    if: needs.detect.outputs.ready == 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build release APK
+        run: flutter build apk --release
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+  # ── Android AAB ──────────────────────────────────────────────────────────────
+  build-aab:
+    name: Android AAB
+    runs-on: ubuntu-latest
+    needs: detect
+    if: needs.detect.outputs.ready == 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build release AAB
+        run: flutter build appbundle --release
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 14
+
+  # ── Web ───────────────────────────────────────────────────────────────────────
+  build-web:
+    name: Web
+    runs-on: ubuntu-latest
+    needs: detect
+    if: needs.detect.outputs.ready == 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build web release
+        run: flutter build web --release
+      - name: Upload web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: build/web/
+          retention-days: 14

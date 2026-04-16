@@ -1,0 +1,173 @@
+{
+  "name": "Flutter App",
+
+  // ── Image ──────────────────────────────────────────────────────────────────
+  // Pulls the pre-built dev image from Docker Hub — no local Dockerfile build.
+  // Image source: github.com/alihaidar0/flutter-devcontainer
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+
+  // ── Remote environment ────────────────────────────────────────────────────
+  "remoteEnv": {
+    "GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=accept-new"
+  },
+
+  // ── VS Code customisations ────────────────────────────────────────────────
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // ── Flutter & Dart ───────────────────────────────────────────────────
+        "Dart-Code.flutter",
+        "Dart-Code.dart-code",
+
+        // ── Git ──────────────────────────────────────────────────────────────
+        "eamodio.gitlens",
+        "mhutchie.git-graph",
+
+        // ── Docker ───────────────────────────────────────────────────────────
+        "ms-azuretools.vscode-docker",
+
+        // ── Utilities ────────────────────────────────────────────────────────
+        "redhat.vscode-yaml",
+        "PKief.material-icon-theme",
+        "aaron-bond.better-comments",
+        "usernamehw.errorlens",
+        "streetsidesoftware.code-spell-checker",
+        "mikestead.dotenv",
+
+        // ── AI ───────────────────────────────────────────────────────────────
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
+      ],
+
+      "settings": {
+        // ── Editor ────────────────────────────────────────────────────────────
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true,
+        "editor.rulers": [80, 120],
+        "editor.renderWhitespace": "boundary",
+        "editor.formatOnSave": true,
+        "editor.formatOnPaste": false,
+        "editor.suggest.preview": true,
+        "editor.inlineSuggest.enabled": true,
+
+        // ── Dart / Flutter ────────────────────────────────────────────────────
+        "[dart]": {
+          "editor.defaultFormatter": "Dart-Code.dart-code",
+          "editor.formatOnSave": true,
+          "editor.selectionHighlight": false,
+          "editor.suggest.snippetsPreventQuickSuggestions": false,
+          "editor.suggestSelection": "first",
+          "editor.tabCompletion": "onlySnippets",
+          "editor.wordBasedSuggestions": "off"
+        },
+        "dart.flutterSdkPath": "/home/developer/flutter",
+        "dart.lineLength": 120,
+        "dart.debugExternalPackageLibraries": false,
+        "dart.debugSdkLibraries": false,
+        "dart.previewFlutterUiGuides": true,
+        "dart.previewFlutterUiGuidesCustomTracking": true,
+        "dart.showInspectorNotificationsForWidgetErrors": true,
+
+        // ── Files ─────────────────────────────────────────────────────────────
+        "files.trimTrailingWhitespace": true,
+        "files.insertFinalNewline": true,
+        "files.trimFinalNewlines": true,
+        "files.eol": "\n",
+        "files.associations": {
+          "**/*.env*": "dotenv",
+          "Dockerfile*": "dockerfile",
+          "*.sh": "shellscript",
+          "*.arb": "json"
+        },
+        "files.exclude": {
+          "**/.git": false,
+          "**/.dart_tool": true,
+          "**/build": true,
+          "**/.flutter-plugins": true,
+          "**/.flutter-plugins-dependencies": true
+        },
+        "files.watcherExclude": {
+          "**/build/**": true,
+          "**/.dart_tool/**": true
+        },
+
+        // ── Search ────────────────────────────────────────────────────────────
+        "search.exclude": {
+          "**/build": true,
+          "**/.dart_tool": true,
+          "**/node_modules": true,
+          "**/coverage": true
+        },
+
+        // ── Terminal ──────────────────────────────────────────────────────────
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.fontSize": 14,
+        "terminal.integrated.scrollback": 5000,
+
+        // ── Explorer sidebar ──────────────────────────────────────────────────
+        "explorer.fileNesting.enabled": true,
+        "explorer.fileNesting.expand": false,
+        "explorer.fileNesting.patterns": {
+          "pubspec.yaml":  "pubspec.lock, .flutter-plugins, .flutter-plugins-dependencies, .metadata, analysis_options.yaml",
+          ".env":          ".env.*, .envrc",
+          "README.md":     "CHANGELOG.md, CONTRIBUTING.md, LICENSE"
+        },
+
+        // ── Git ───────────────────────────────────────────────────────────────
+        "git.autofetch": true,
+        "git.confirmSync": false,
+        "git.enableSmartCommit": true,
+        "gitlens.hovers.currentLine.over": "line",
+
+        // ── Error Lens ────────────────────────────────────────────────────────
+        "errorLens.enabledDiagnosticLevels": ["error", "warning"],
+        "errorLens.followCursor": "allLines",
+
+        // ── Spell checker ─────────────────────────────────────────────────────
+        "cSpell.words": [
+          "commitlint",
+          "devcontainer",
+          "dockerfile",
+          "flutterfire",
+          "husky",
+          "pubspec",
+          "riverpod",
+          "widgetbook"
+        ]
+      }
+    }
+  },
+
+  // ── Port forwarding ───────────────────────────────────────────────────────
+  // 8080 — flutter run -d web-server binds here inside the container.
+  // Opened as URL so the developer sees the web build immediately.
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Flutter Web",
+      "onAutoForward": "openBrowser"
+    }
+  },
+
+  // ── Lifecycle hooks ───────────────────────────────────────────────────────
+  //
+  // postCreateCommand — runs once when the container is first created.
+  //   Installs Husky + commitlint and registers all git hooks automatically.
+  //   Safe to run on a fresh template: package.json is always present and
+  //   `pnpm install` only installs the two declared devDependencies.
+  //   Flutter is NOT initialised here — the developer does that manually.
+  //
+  // postStartCommand — runs on every container start.
+  //   Shows a context-aware Flutter getting-started banner.
+  //
+  "postCreateCommand": "pnpm install",
+  "postStartCommand": "bash /workspace/scripts/welcome.sh",
+
+  // ── Remote user ───────────────────────────────────────────────────────────
+  // Matches the non-root 'developer' user created in the devcontainer image.
+  // All Flutter SDK paths, pub cache, and Android SDK are owned by this user.
+  "remoteUser": "developer"
+}

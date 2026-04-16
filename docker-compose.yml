@@ -1,0 +1,66 @@
+name: flutter-template
+
+services:
+  app:
+    image: ${DOCKERHUB_USERNAME:-alihaidar199527}/flutter-devcontainer:latest
+    container_name: flutter_app
+    restart: "no"
+    entrypoint: ["/workspace/scripts/entrypoint.dev.sh"]
+    command: sleep infinity
+    volumes:
+      # ── Project files ──────────────────────────────────────────────────────
+      # :cached = host is the source of truth; Docker can cache reads on macOS.
+      - .:/workspace:cached
+
+      # ── Git identity ───────────────────────────────────────────────────────
+      - ${USERPROFILE:-$HOME}/.gitconfig:/home/developer/.gitconfig:ro
+
+      # ── SSH keys ───────────────────────────────────────────────────────────
+      # :cached = permissions fixed at runtime by entrypoint.dev.sh
+      # Windows NTFS mounts SSH keys with incorrect permissions (0777).
+      # The entrypoint script corrects them to 600/644 on every container start.
+      - ${USERPROFILE:-$HOME}/.ssh:/home/developer/.ssh:cached
+
+      # ── Dart / Flutter caches ──────────────────────────────────────────────
+      # Persisted as named volumes so pub packages and Gradle artifacts survive
+      # container rebuilds. Without these, every restart re-downloads all deps.
+      - pub-cache:/home/developer/.pub-cache
+      - gradle-cache:/home/developer/.gradle
+
+      # ── Android SDK ────────────────────────────────────────────────────────
+      # Persisted so the Android SDK installed in the image is not lost
+      # when the container is recreated.
+      - android-sdk:/home/developer/Android
+
+      # ── Shell history ─────────────────────────────────────────────────────
+      - shell-history:/home/developer/.shell_history
+
+    environment:
+      GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new"
+
+    ports:
+      # flutter run -d web-server --web-port 8080 --web-hostname 0.0.0.0
+      - "8080:8080"
+
+    # ── Host emulator (ADB) ────────────────────────────────────────────────────
+    # Allows `adb connect host.docker.internal:5555` from inside the container
+    # to reach an Android emulator running on the host machine.
+    # On Linux, host.docker.internal is not automatic — the extra_hosts entry
+    # adds it explicitly using the host-gateway special value.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    working_dir: /workspace
+
+    networks:
+      - flutter-network
+
+volumes:
+  pub-cache:
+  gradle-cache:
+  android-sdk:
+  shell-history:
+
+networks:
+  flutter-network:
+    driver: bridge
