@@ -25,25 +25,34 @@ updates:
     open-pull-requests-limit: 5
 
   # ── Dart / Flutter pub packages ─────────────────────────────────────────────
-  # Active once pubspec.yaml exists in the repository root.
-  - package-ecosystem: "pub"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "UTC"
-    target-branch: "develop"
-    rebase-strategy: "auto"
-    assignees:
-      - "alihaidar0"
-    commit-message:
-      prefix: "chore"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "flutter"
-    open-pull-requests-limit: 5
+  # DISABLED on flutter-template itself. This ecosystem requires pubspec.yaml
+  # to exist at the repo root — which this template intentionally does not
+  # ship (see README: "Blank canvas. No lib/, no pubspec.yaml"). Left enabled,
+  # Dependabot hard-fails every run with "dependency_file_not_found" since it
+  # has no graceful-skip behavior like ci.yml's tier detection does.
+  #
+  # ACTION REQUIRED once you run `flutter create` in a project generated from
+  # this template: uncomment the block below so dependency updates actually
+  # run. See README → Dependabot section.
+  #
+  # - package-ecosystem: "pub"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+  #     day: "monday"
+  #     time: "09:00"
+  #     timezone: "UTC"
+  #   target-branch: "develop"
+  #   rebase-strategy: "auto"
+  #   assignees:
+  #     - "alihaidar0"
+  #   commit-message:
+  #     prefix: "chore"
+  #     include: "scope"
+  #   labels:
+  #     - "dependencies"
+  #     - "flutter"
+  #   open-pull-requests-limit: 5
 
   # ── npm (husky + commitlint only) ───────────────────────────────────────────
   # Node is intentionally frozen at v24 LTS — matches the pinned NODE_VERSION
