@@ -375,8 +375,24 @@ Promote to `main` once verified.
 | Ecosystem        | Scope                | Notes                                                    |
 | ---------------- | -------------------- | -------------------------------------------------------- |
 | `github-actions` | All Actions versions | Grouped into one weekly PR                               |
-| `pub`            | Dart packages at `/` | Active once `pubspec.yaml` exists                        |
+| `pub`            | Dart packages at `/` | **Commented out by default** — see below                 |
 | `npm`            | husky + commitlint   | Node 24 frozen — bump manually when Node 26 LTS is ready |
+
+### Activating the `pub` ecosystem
+
+The `pub` block in `.github/dependabot.yml` ships **commented out**. Dependabot
+requires `pubspec.yaml` to exist to scan for dependencies, and this template
+intentionally has none — leaving it enabled makes the `Dependabot` job in the
+**Actions** tab fail every week with `dependency_file_not_found`.
+
+Once you've run `flutter create` in your generated project:
+
+1. Open `.github/dependabot.yml`
+2. Uncomment the `pub` ecosystem block
+3. Commit and push
+
+Dependency updates for your Flutter packages will start on the next
+scheduled run.
 
 ---
 
