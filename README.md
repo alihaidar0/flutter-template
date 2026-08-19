@@ -8,17 +8,18 @@ GitHub Template repository. Every new Flutter project starts from here.
 
 [![CI](https://github.com/alihaidar0/flutter-template/actions/workflows/ci.yml/badge.svg)](https://github.com/alihaidar0/flutter-template/actions/workflows/ci.yml)
 [![Build](https://github.com/alihaidar0/flutter-template/actions/workflows/build.yml/badge.svg)](https://github.com/alihaidar0/flutter-template/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
 ## How to use
 
 1. Click **"Use this template"** on GitHub → creates your new project repo
-2. Clone it to your machine
+2. Clone it to your machine (Windows / macOS / Linux)
 3. Open in VS Code → click **"Reopen in Container"** when prompted
 4. VS Code pulls `alihaidar199527/flutter-devcontainer:latest` from Docker Hub
 5. Your project folder is mounted at `/workspace` — full two-way sync
-6. Run `npm install` inside the container to activate Husky + commitlint git hooks
+6. Husky git hooks activate automatically (`postCreateCommand` runs `pnpm install`)
 7. Run `flutter create` to initialise your Flutter project — see **First Steps** below
 8. Start coding
 
@@ -29,24 +30,24 @@ GitHub Template repository. Every new Flutter project starts from here.
 Once inside the container terminal:
 
 ```bash
-# 1. Activate Husky git hooks
-npm install
-
-# 2. Initialise your Flutter project
+# 1. Initialise your Flutter project
 flutter create --org com.yourcompany .
 # or into a subdirectory:
 flutter create --org com.yourcompany my_app
 
-# 3. Verify the environment
+# 2. Verify the environment
 flutter doctor -v
 
-# 4. Run on web (accessible at http://localhost:8080)
+# 3. Run on web (accessible at http://localhost:8080)
 frunw
 # expands to: flutter run -d web-server --web-port 8080 --web-hostname 0.0.0.0
 ```
 
-Flutter is **not** initialised automatically — this is by design. You choose the
-organisation ID, app name, and target platforms when you run `flutter create`.
+Flutter is **not** initialised automatically — this is by design. You choose
+the organisation ID, app name, and target platforms when you run
+`flutter create`. Husky hooks are already active from step 6 above, so
+there's no manual `pnpm install` step unless you're re-running it after
+adding a new devDependency.
 
 ---
 
@@ -71,31 +72,89 @@ forwards your host SSH keys and `.gitconfig` into the container.
 
 ---
 
+## Repository Structure
+
+```
+flutter-template/
+├── .devcontainer/
+│   └── devcontainer.json             ← VS Code dev container config
+├── .github/
+│   ├── ISSUE_TEMPLATE/
+│   │   ├── bug_report.yml
+│   │   ├── feature_request.yml
+│   │   └── config.yml                ← links "image" bugs to flutter-devcontainer
+│   ├── workflows/
+│   │   ├── build.yml                 ← production APK/AAB/Web builds
+│   │   ├── ci.yml                    ← three-tier graceful-degradation CI
+│   │   └── labels.yml                ← syncs labels.yml to GitHub
+│   ├── CODEOWNERS
+│   ├── PULL_REQUEST_TEMPLATE.md
+│   ├── dependabot.yml                ← Actions + pub + npm, PRs → develop
+│   └── labels.yml
+├── .husky/
+│   ├── commit-msg                    ← enforces Conventional Commits
+│   ├── pre-commit                    ← format + analyze (skips pre-init)
+│   └── pre-push                      ← blocks direct push to main
+├── .vscode/
+│   ├── extensions.json               ← host-side recommended extensions
+│   ├── launch.json                   ← Flutter debug configs (forward-ready)
+│   └── settings.json                 ← host-side editor defaults
+├── scripts/
+│   ├── entrypoint.dev.sh             ← fixes SSH/Husky permissions on start
+│   └── welcome.sh                    ← tier-aware getting-started banner
+├── .dockerignore
+├── .editorconfig
+├── .env.example
+├── .gitattributes
+├── .gitignore
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── LICENSE                           ← MIT
+├── README.md
+├── SECURITY.md
+├── commitlint.config.mjs
+├── docker-compose.yml                ← starts the container, mounts caches
+├── package.json                      ← husky + commitlint only
+├── pnpm-workspace.yaml
+└── repomix.config.json               ← AI-context snapshot config
+```
+
+---
+
 ## What's included
 
-| Path                              | Purpose                                                                                         |
-| --------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `.devcontainer/devcontainer.json` | VS Code dev container config — pulls pre-built image, sets `developer` user, forwards port 8080 |
-| `docker-compose.yml`              | Starts the container, mounts project + SSH + Git identity + named volume caches                 |
-| `scripts/entrypoint.dev.sh`       | Fixes SSH key permissions (Windows NTFS) and Husky hook permissions on every container start    |
-| `scripts/welcome.sh`              | Context-aware banner — shows next steps based on project tier                                   |
-| `.husky/commit-msg`               | Enforces Conventional Commits format via commitlint                                             |
-| `.husky/pre-push`                 | Blocks direct push to `main`                                                                    |
-| `commitlint.config.mjs`           | Extends `@commitlint/config-conventional` with explicit type rules                              |
-| `package.json`                    | Declares husky + commitlint only — no app dependencies                                          |
-| `.github/workflows/ci.yml`        | Three-tier CI — graceful degradation, skips cleanly on fresh template                           |
-| `.github/workflows/build.yml`     | Production builds — APK, AAB, Web — triggered on merge to `main`                                |
-| `.github/workflows/labels.yml`    | Syncs `.github/labels.yml` to GitHub repository labels                                          |
-| `.github/dependabot.yml`          | Weekly Dependabot updates for Actions + pub + npm (Node 24 frozen)                              |
-| `.github/labels.yml`              | Label definitions — name, colour, description                                                   |
-| `.github/CODEOWNERS`              | Auto-requests reviewer on every PR                                                              |
-| `.vscode/extensions.json`         | Host-side extension recommendations — includes Dev Containers                                   |
-| `.vscode/settings.json`           | Host-side editor defaults                                                                       |
-| `.vscode/launch.json`             | Flutter debug configurations — web server, Chrome, Android                                      |
-| `.env.example`                    | Template for `.env` — copy and fill in your values                                              |
-| `.gitattributes`                  | Enforces LF line endings — prevents CRLF breakage on Windows                                    |
-| `.gitignore`                      | Flutter, Dart, Node, Android, iOS, OS, editor, secrets                                          |
-| `.dockerignore`                   | Excludes dev tooling from any future production Docker build context                            |
+| Path                               | Purpose                                                                                         |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `.devcontainer/devcontainer.json`  | VS Code dev container config — pulls pre-built image, sets `developer` user, forwards port 8080 |
+| `docker-compose.yml`               | Starts the container, mounts project + SSH + Git identity + named volume caches + host emulator |
+| `scripts/entrypoint.dev.sh`        | Fixes SSH key permissions (Windows NTFS) and Husky hook permissions on every container start    |
+| `scripts/welcome.sh`               | Context-aware banner — shows next steps based on project tier                                   |
+| `.husky/commit-msg`                | Enforces Conventional Commits format via commitlint                                             |
+| `.husky/pre-commit`                | `dart format` + `flutter analyze` (skips cleanly pre-`flutter create`)                          |
+| `.husky/pre-push`                  | Blocks direct push to `main`                                                                    |
+| `commitlint.config.mjs`            | Extends `@commitlint/config-conventional` with explicit type rules                              |
+| `package.json`                     | Declares husky + commitlint only — no app dependencies, Node ≥ 24                               |
+| `.github/workflows/ci.yml`         | Three-tier CI — graceful degradation, skips cleanly on fresh template                           |
+| `.github/workflows/build.yml`      | Production builds — APK, AAB, Web — triggered on merge to `main`                                |
+| `.github/workflows/labels.yml`     | Syncs `.github/labels.yml` to GitHub repository labels                                          |
+| `.github/dependabot.yml`           | Weekly updates for Actions + pub + npm (Node 24 frozen) — PRs target `develop`                  |
+| `.github/labels.yml`               | Label definitions — name, colour, description                                                   |
+| `.github/CODEOWNERS`               | Auto-requests reviewer on every PR                                                              |
+| `.github/PULL_REQUEST_TEMPLATE.md` | PR checklist — pinned versions, zero-code rule, target branch                                   |
+| `.github/ISSUE_TEMPLATE/`          | Structured bug report + feature request forms, contact link to `flutter-devcontainer`           |
+| `.vscode/extensions.json`          | Host-side extension recommendations — Dev Containers, Docker, GitLens                           |
+| `.vscode/settings.json`            | Host-side editor defaults, tracked as shared team config                                        |
+| `.vscode/launch.json`              | Flutter debug configurations — web server, Chrome, Android (active once `lib/main.dart` exists) |
+| `.env.example`                     | Template for `.env` — copy and fill in your values                                              |
+| `.editorconfig`                    | Consistent indentation/line endings across editors                                              |
+| `.gitattributes`                   | Enforces LF line endings — prevents CRLF breakage on Windows                                    |
+| `.gitignore`                       | Flutter, Dart, Node, Android, iOS, OS, editor, secrets                                          |
+| `.dockerignore`                    | Excludes dev tooling from any future production Docker build context                            |
+| `LICENSE`                          | MIT                                                                                             |
+| `SECURITY.md`                      | Vulnerability reporting policy                                                                  |
+| `CONTRIBUTING.md`                  | Branching model, commit convention, PR process                                                  |
+| `CHANGELOG.md`                     | Keep a Changelog — tracks template-level (not app-level) changes                                |
+| `repomix.config.json`              | Config for generating the AI-readable repo snapshot                                             |
 
 ### What is NOT included
 
@@ -139,6 +198,9 @@ detect ──┬── format  ──┐
 
 `ci-passed` is the single required status check to configure in branch protection.
 
+Every job declares an explicit least-privilege `permissions: contents: read`
+and a `timeout-minutes` so a stuck runner fails fast instead of hanging.
+
 | Job       | Command                               | Purpose                                         |
 | --------- | ------------------------------------- | ----------------------------------------------- |
 | `format`  | `dart format --set-exit-if-changed .` | Formatting enforcement                          |
@@ -150,8 +212,8 @@ detect ──┬── format  ──┐
 ### `build.yml` — Production Builds
 
 Triggered on merge to `main` (path-filtered to Flutter source files only) or
-manually via workflow dispatch. Skipped entirely if `pubspec.yaml` / `pubspec.lock`
-do not exist.
+manually via workflow dispatch. Skipped entirely if `pubspec.yaml` /
+`pubspec.lock` do not exist.
 
 | Job         | Runner          | Output            | Retained |
 | ----------- | --------------- | ----------------- | -------- |
@@ -179,18 +241,62 @@ dependencies (~4–5 GB combined).
 
 ---
 
+## Connecting to a Host Emulator
+
+`docker-compose.yml` already maps `host.docker.internal` to the host gateway
+(`extra_hosts: host.docker.internal:host-gateway`), so the container _can_
+reach services on your host — but by default, `adb` only listens on
+`localhost` on the host machine, so the container still can't see it until
+you tell the host's ADB server to listen on all interfaces.
+
+```bash
+# 1. On your HOST machine (not inside the container):
+#    Start (or restart) adb listening on all interfaces, not just localhost.
+adb kill-server
+adb -a -P 5037 nodaemon server start &
+
+#    (Alternative: set this once in your shell profile instead of -a each time)
+export ANDROID_ADB_SERVER_ADDRESS=0.0.0.0
+
+# 2. Start the Android emulator on your host (Android Studio / avdmanager)
+
+# 3. Inside the dev container:
+adb connect host.docker.internal:5555
+adbdevices          # alias for: adb devices
+```
+
+If the device shows `unauthorized`, accept the prompt on the emulator
+screen. If it shows `offline`:
+
+```bash
+adbrestart           # adb kill-server && adb start-server
+adb connect host.docker.internal:5555
+```
+
+> **Windows firewall:** allow inbound TCP on ports `5037` (adb server) and
+> `5555` (emulator adb port) from the Docker network.
+
+For **web**, `frunw` binds to `0.0.0.0:8080` inside the container, which
+VS Code auto-forwards to `http://localhost:8080` on the host — no
+emulator or `adb -a` setup required.
+
+---
+
 ## Git Hooks
 
-Managed by [Husky v9](https://typicode.github.io/husky/). Activated by running
-`npm install` once after cloning (or after container creation via `postCreateCommand`).
+Managed by [Husky v9](https://typicode.github.io/husky/). Activated
+automatically via `postCreateCommand` when the container is created — no
+manual step needed. Re-run manually with `pnpm install` if hooks are ever
+missing.
 
-| Hook         | Trigger            | Purpose                              |
-| ------------ | ------------------ | ------------------------------------ |
-| `commit-msg` | Every `git commit` | Enforces Conventional Commits format |
-| `pre-push`   | Every `git push`   | Blocks direct push to `main`         |
+| Hook         | Trigger            | Purpose                                                                       |
+| ------------ | ------------------ | ----------------------------------------------------------------------------- |
+| `commit-msg` | Every `git commit` | Enforces Conventional Commits format                                          |
+| `pre-commit` | Every `git commit` | `dart format` + `flutter analyze` — skips cleanly if `pubspec.yaml` is absent |
+| `pre-push`   | Every `git push`   | Blocks direct push to `main`                                                  |
 
-Hooks are automatically re-enabled on every container start via `entrypoint.dev.sh`,
-which also fixes the execute-bit permissions that Windows NTFS strips.
+Hooks are re-enabled on every container start via `entrypoint.dev.sh`, which
+also fixes the execute-bit permissions that Windows NTFS strips.
 
 ---
 
@@ -236,6 +342,8 @@ All aliases are baked into the base image by `flutter-devcontainer`. A quick ref
 | `fbuildaab`    | `flutter build appbundle --release`                                |
 | `fbuildweb`    | `flutter build web --release`                                      |
 | `daudit`       | `dart pub audit`                                                   |
+| `adbdevices`   | `adb devices`                                                      |
+| `adbrestart`   | `adb kill-server && adb start-server`                              |
 | `gs`           | `git status`                                                       |
 | `ga`           | `git add`                                                          |
 | `gc`           | `git commit -m`                                                    |
@@ -246,27 +354,45 @@ All aliases are baked into the base image by `flutter-devcontainer`. A quick ref
 
 ## Platform Support
 
-| Platform        | Build target              | Status                                             |
-| --------------- | ------------------------- | -------------------------------------------------- |
-| Android APK     | `flutter build apk`       | Included in `build.yml`                            |
-| Android AAB     | `flutter build appbundle` | Included in `build.yml`                            |
-| Web             | `flutter build web`       | Included in `build.yml`                            |
-| iOS             | `flutter build ipa`       | Add per project — requires `macos-latest` runner   |
-| macOS Desktop   | `flutter build macos`     | Add per project — requires `macos-latest` runner   |
-| Linux Desktop   | `flutter build linux`     | Add per project                                    |
-| Windows Desktop | `flutter build windows`   | Add per project — requires `windows-latest` runner |
+| Platform        | Build target              | Status                                                                              |
+| --------------- | ------------------------- | ----------------------------------------------------------------------------------- |
+| Android APK     | `flutter build apk`       | Included in `build.yml`                                                             |
+| Android AAB     | `flutter build appbundle` | Included in `build.yml`                                                             |
+| Web             | `flutter build web`       | Included in `build.yml`                                                             |
+| iOS             | `flutter build ipa`       | Add per project — requires macOS host (Simulator can't run in this Linux container) |
+| macOS Desktop   | `flutter build macos`     | Add per project — requires `macos-latest` runner                                    |
+| Linux Desktop   | `flutter build linux`     | Add per project                                                                     |
+| Windows Desktop | `flutter build windows`   | Add per project — requires `windows-latest` runner                                  |
 
 ---
 
 ## Dependabot
 
-Automated dependency updates run every Monday at 09:00 UTC, targeting `main`.
+Automated dependency updates run every Monday at 09:00 UTC, opening PRs
+against **`develop`** (not `main`) — matching `flutter-devcontainer`'s flow.
+Promote to `main` once verified.
 
 | Ecosystem        | Scope                | Notes                                                    |
 | ---------------- | -------------------- | -------------------------------------------------------- |
 | `github-actions` | All Actions versions | Grouped into one weekly PR                               |
 | `pub`            | Dart packages at `/` | Active once `pubspec.yaml` exists                        |
 | `npm`            | husky + commitlint   | Node 24 frozen — bump manually when Node 26 LTS is ready |
+
+---
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
+
+## Security
+
+Found a vulnerability? Do not open a public issue — see
+[`SECURITY.md`](SECURITY.md) for private reporting instructions.
+
+## Contributing
+
+Branching model, commit convention, and PR process are documented in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
@@ -301,11 +427,32 @@ source ~/.bashrc
 VS Code auto-forwards port 8080. If the browser does not open automatically,
 check the **Ports** tab in VS Code and open `http://localhost:8080` manually.
 
-### `npm install` fails — node version mismatch
+### `pnpm install` fails — Node version mismatch
 
-The `package.json` requires Node ≥ 24. The devcontainer image ships Node 24 LTS —
-this should never fail inside the container. If it does, confirm you are running
-inside the container and not on your host machine.
+`package.json` requires Node ≥ 24. The devcontainer image ships Node 24 LTS —
+this should never fail inside the container. If it does, confirm you are
+running inside the container and not on your host machine.
+
+### ADB cannot find the host emulator
+
+The host's `adb` server binds to `localhost` by default — the container
+can't reach it until you start it with `-a` (listen on all interfaces):
+
+```bash
+# On the host:
+adb kill-server
+adb -a -P 5037 nodaemon server start &
+```
+
+Then inside the container:
+
+```bash
+adb connect host.docker.internal:5555
+adbdevices
+```
+
+If `offline`, run `adbrestart` and reconnect. On Windows, allow inbound TCP
+on ports `5037` and `5555` from the Docker network in your firewall.
 
 ### Commit rejected — invalid commit message
 
@@ -349,4 +496,4 @@ git reset --hard HEAD
 
 ---
 
-_Flutter stable · Dart · Android SDK 36 · Java 21 Temurin · Node.js 24 LTS · Husky 9 · commitlint 20 · 2026_
+_Flutter stable · Dart · Android SDK 36 · Java 21 Temurin · Node.js 24 LTS · Husky 9 · commitlint 21 · MIT · 2026_

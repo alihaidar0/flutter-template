@@ -23,6 +23,8 @@
     "usernamehw.errorlens",
     "streetsidesoftware.code-spell-checker",
     "oderwat.indent-rainbow",
+    "EditorConfig.EditorConfig",
+    "davidanson.vscode-markdownlint",
 
     // ── AI ───────────────────────────────────────────────────────────────────
     "GitHub.copilot",

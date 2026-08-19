@@ -38,15 +38,24 @@ services:
     environment:
       GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new"
 
+      # ── Host emulator (ADB) ────────────────────────────────────────────────
+      # Points the container's adb CLIENT at the HOST's adb SERVER instead of
+      # spinning up a second, separate adb server inside the container.
+      # Requires the host to run its adb server bound to all interfaces once:
+      #   adb kill-server && adb -a -P 5037 nodaemon server start &
+      # After that, `adb devices` inside the container "just works" — no
+      # `adb connect host.docker.internal:5555` step needed per session.
+      # host.docker.internal is resolved via the extra_hosts entry below.
+      ADB_SERVER_SOCKET: "tcp:host.docker.internal:5037"
+
     ports:
       # flutter run -d web-server --web-port 8080 --web-hostname 0.0.0.0
       - "8080:8080"
 
-    # ── Host emulator (ADB) ────────────────────────────────────────────────────
-    # Allows `adb connect host.docker.internal:5555` from inside the container
-    # to reach an Android emulator running on the host machine.
-    # On Linux, host.docker.internal is not automatic — the extra_hosts entry
-    # adds it explicitly using the host-gateway special value.
+    # ── Host gateway ─────────────────────────────────────────────────────────
+    # Resolves host.docker.internal inside the container so it can reach the
+    # host's adb server (see ADB_SERVER_SOCKET above). On Linux this is not
+    # automatic — the host-gateway special value adds it explicitly.
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

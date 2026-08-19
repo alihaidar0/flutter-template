@@ -8,7 +8,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "UTC"
-    target-branch: "main"
+    target-branch: "develop"
     rebase-strategy: "auto"
     assignees:
       - "alihaidar0"
@@ -33,7 +33,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "UTC"
-    target-branch: "main"
+    target-branch: "develop"
     rebase-strategy: "auto"
     assignees:
       - "alihaidar0"
@@ -46,8 +46,9 @@ updates:
     open-pull-requests-limit: 5
 
   # ── npm (husky + commitlint only) ───────────────────────────────────────────
-  # Node is intentionally frozen at v24 LTS. All other npm packages are
-  # auto-updated. Bump Node manually when v26 LTS is released and tested.
+  # Node is intentionally frozen at v24 LTS — matches the pinned NODE_VERSION
+  # in flutter-devcontainer's Dockerfile.dev. All other npm packages are
+  # auto-updated. Bump Node manually (in both repos) when v26 LTS ships.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -55,7 +56,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "UTC"
-    target-branch: "main"
+    target-branch: "develop"
     rebase-strategy: "auto"
     assignees:
       - "alihaidar0"

@@ -22,6 +22,9 @@ jobs:
   detect:
     name: Detect project
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       ready: ${{ steps.check.outputs.ready }}
     steps:
@@ -42,10 +45,13 @@ jobs:
     name: Android APK
     runs-on: ubuntu-latest
     needs: detect
+    timeout-minutes: 20
+    permissions:
+      contents: read
     if: needs.detect.outputs.ready == 'true'
     steps:
       - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
@@ -64,10 +70,13 @@ jobs:
     name: Android AAB
     runs-on: ubuntu-latest
     needs: detect
+    timeout-minutes: 20
+    permissions:
+      contents: read
     if: needs.detect.outputs.ready == 'true'
     steps:
       - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
@@ -86,10 +95,13 @@ jobs:
     name: Web
     runs-on: ubuntu-latest
     needs: detect
+    timeout-minutes: 15
+    permissions:
+      contents: read
     if: needs.detect.outputs.ready == 'true'
     steps:
       - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
