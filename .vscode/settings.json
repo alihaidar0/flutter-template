@@ -1,0 +1,48 @@
+{
+  // ── Files ─────────────────────────────────────────────────────────────────
+  // These apply on the host before the container starts. The devcontainer
+  // settings in devcontainer.json override these once inside the container.
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.eol": "\n",
+  "files.associations": {
+    "**/*.env*": "dotenv",
+    "Dockerfile*": "dockerfile",
+    "*.sh": "shellscript",
+    "*.arb": "json"
+  },
+  "files.exclude": {
+    "**/.git": false,
+    "**/.dart_tool": true,
+    "**/build": true
+  },
+
+  // ── Editor ────────────────────────────────────────────────────────────────
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.rulers": [80, 120],
+  "editor.formatOnSave": true,
+
+  "search.exclude": {
+    "**/build": true,
+    "**/.dart_tool": true,
+    "**/node_modules": true,
+    "**/coverage": true
+  },
+
+  "[dart]": {
+    "editor.defaultFormatter": "Dart-Code.dart-code",
+    "editor.formatOnSave": true
+  },
+  "[markdown]": {
+    "editor.wordWrap": "on"
+  },
+
+  // ── Git ───────────────────────────────────────────────────────────────────
+  "git.autofetch": true,
+  "git.confirmSync": false,
+
+  // ── YAML ──────────────────────────────────────────────────────────────────
+  "[yaml]": { "editor.defaultFormatter": "redhat.vscode-yaml" }
+}

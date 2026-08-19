@@ -6,6 +6,9 @@ on:
     paths-ignore:
       - "**.md"
       - ".gitignore"
+      - ".editorconfig"
+      - "LICENSE"
+      - ".vscode/**"
       - "docs/**"
   pull_request:
     branches: [main, develop]
@@ -24,6 +27,9 @@ jobs:
   detect:
     name: Detect project tier
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       tier: ${{ steps.check.outputs.tier }}
     steps:
@@ -53,12 +59,15 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     needs: detect
+    timeout-minutes: 10
+    permissions:
+      contents: read
     if: >
       needs.detect.outputs.tier == '3' &&
       (github.event.pull_request.draft == false || github.event_name != 'pull_request')
     steps:
       - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
@@ -69,12 +78,15 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     needs: detect
+    timeout-minutes: 10
+    permissions:
+      contents: read
     if: >
       needs.detect.outputs.tier == '3' &&
       (github.event.pull_request.draft == false || github.event_name != 'pull_request')
     steps:
       - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
@@ -86,6 +98,9 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     needs: [detect, format, analyze]
+    timeout-minutes: 15
+    permissions:
+      contents: read
     if: >
       always() &&
       needs.detect.outputs.tier == '3' &&
@@ -93,7 +108,7 @@ jobs:
       needs.analyze.result == 'success'
     steps:
       - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
@@ -119,12 +134,15 @@ jobs:
     name: Security audit
     runs-on: ubuntu-latest
     needs: detect
+    timeout-minutes: 10
+    permissions:
+      contents: read
     if: >
       needs.detect.outputs.tier == '3' &&
       (github.event.pull_request.draft == false || github.event_name != 'pull_request')
     steps:
       - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
@@ -136,10 +154,13 @@ jobs:
     name: Flutter doctor
     runs-on: ubuntu-latest
     needs: detect
+    timeout-minutes: 10
+    permissions:
+      contents: read
     if: needs.detect.outputs.tier == '2' || needs.detect.outputs.tier == '3'
     steps:
       - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
@@ -152,6 +173,9 @@ jobs:
     name: CI passed
     runs-on: ubuntu-latest
     needs: [detect, format, analyze, test, audit, doctor]
+    timeout-minutes: 5
+    permissions:
+      contents: read
     if: always()
     steps:
       - name: Evaluate results

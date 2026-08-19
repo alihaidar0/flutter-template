@@ -5,7 +5,6 @@
 .metadata
 .packages
 build/
-pubspec.lock
 
 # ── Android ───────────────────────────────────────────────────────────────────
 **/android/local.properties
@@ -44,7 +43,12 @@ Thumbs.db
 Desktop.ini
 
 # ── Editor ────────────────────────────────────────────────────────────────────
-.vscode/settings.json
+# .vscode/settings.json, extensions.json, and launch.json are committed as
+# shared team defaults. Personal overrides go in .vscode/*.local.json instead.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
 .idea/
 *.swp
 *~
