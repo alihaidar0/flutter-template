@@ -111,9 +111,9 @@
         "explorer.fileNesting.enabled": true,
         "explorer.fileNesting.expand": false,
         "explorer.fileNesting.patterns": {
-          "pubspec.yaml":  "pubspec.lock, .flutter-plugins, .flutter-plugins-dependencies, .metadata, analysis_options.yaml",
-          ".env":          ".env.*, .envrc",
-          "README.md":     "CHANGELOG.md, CONTRIBUTING.md, LICENSE"
+          "pubspec.yaml": "pubspec.lock, .flutter-plugins, .flutter-plugins-dependencies, .metadata, analysis_options.yaml",
+          ".env": ".env.*, .envrc",
+          "README.md": "CHANGELOG.md, CONTRIBUTING.md, LICENSE"
         },
 
         // ── Git ───────────────────────────────────────────────────────────────
@@ -160,10 +160,20 @@
   //   `pnpm install` only installs the two declared devDependencies.
   //   Flutter is NOT initialised here — the developer does that manually.
   //
+  //   Corepack (which provides pnpm) ships with Node but is dormant until
+  //   enabled, and its shim lives in /usr/local/bin, which is root-owned —
+  //   so activation needs `sudo`. `flutter-devcontainer` now activates
+  //   Corepack/pnpm at image build time, so this explicit step is normally
+  //   a no-op once you're on an image built after that fix; it's kept here
+  //   as a safety net so this template still works correctly against older
+  //   cached images. COREPACK_ENABLE_DOWNLOAD_PROMPT=0 suppresses the
+  //   interactive [Y/n] confirmation Corepack shows on first download,
+  //   which would otherwise hang postCreateCommand (it runs non-interactively).
+  //
   // postStartCommand — runs on every container start.
   //   Shows a context-aware Flutter getting-started banner.
   //
-  "postCreateCommand": "pnpm install",
+  "postCreateCommand": "sudo corepack enable && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 sudo corepack prepare pnpm@latest --activate && pnpm install",
   "postStartCommand": "bash /workspace/scripts/welcome.sh",
 
   // ── Remote user ───────────────────────────────────────────────────────────

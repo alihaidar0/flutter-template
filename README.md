@@ -19,7 +19,7 @@ GitHub Template repository. Every new Flutter project starts from here.
 3. Open in VS Code → click **"Reopen in Container"** when prompted
 4. VS Code pulls `alihaidar199527/flutter-devcontainer:latest` from Docker Hub
 5. Your project folder is mounted at `/workspace` — full two-way sync
-6. Husky git hooks activate automatically (`postCreateCommand` runs `pnpm install`)
+6. Husky git hooks activate automatically (`postCreateCommand` enables Corepack/pnpm, then runs `pnpm install`)
 7. Run `flutter create` to initialise your Flutter project — see **First Steps** below
 8. Start coding
 
@@ -48,6 +48,12 @@ the organisation ID, app name, and target platforms when you run
 `flutter create`. Husky hooks are already active from step 6 above, so
 there's no manual `pnpm install` step unless you're re-running it after
 adding a new devDependency.
+
+Corepack (which provides `pnpm`) ships with Node but is dormant until
+enabled, and its shim lives in a root-owned path — so `postCreateCommand`
+runs `sudo corepack enable` before `pnpm install`. `flutter-devcontainer`
+now activates Corepack/pnpm at image build time, so this is normally a
+no-op — it's kept as a safety net for older cached images.
 
 ---
 
@@ -127,7 +133,7 @@ flutter-template/
 | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `.devcontainer/devcontainer.json`  | VS Code dev container config — pulls pre-built image, sets `developer` user, forwards port 8080 |
 | `docker-compose.yml`               | Starts the container, mounts project + SSH + Git identity + named volume caches + host emulator |
-| `scripts/entrypoint.dev.sh`        | Fixes SSH key permissions (Windows NTFS) and Husky hook permissions on every container start    |
+| `scripts/entrypoint.dev.sh`        | Fixes SSH key and Husky hook permissions on every container start — falls back to non-interactive `sudo` and warns instead of failing when a bind-mounted folder is root-owned |
 | `scripts/welcome.sh`               | Context-aware banner — shows next steps based on project tier                                   |
 | `.husky/commit-msg`                | Enforces Conventional Commits format via commitlint                                             |
 | `.husky/pre-commit`                | `dart format` + `flutter analyze` (skips cleanly pre-`flutter create`)                          |
@@ -285,9 +291,10 @@ emulator or `adb -a` setup required.
 ## Git Hooks
 
 Managed by [Husky v9](https://typicode.github.io/husky/). Activated
-automatically via `postCreateCommand` when the container is created — no
-manual step needed. Re-run manually with `pnpm install` if hooks are ever
-missing.
+automatically via `postCreateCommand`, which enables Corepack/pnpm and then
+runs `pnpm install` when the container is created — no manual step needed.
+Re-run manually with `sudo corepack enable && pnpm install` if hooks are
+ever missing.
 
 | Hook         | Trigger            | Purpose                                                                       |
 | ------------ | ------------------ | ----------------------------------------------------------------------------- |
@@ -443,11 +450,34 @@ source ~/.bashrc
 VS Code auto-forwards port 8080. If the browser does not open automatically,
 check the **Ports** tab in VS Code and open `http://localhost:8080` manually.
 
-### `pnpm install` fails — Node version mismatch
+### `pnpm install` fails — Node version mismatch or Corepack not enabled
 
-`package.json` requires Node ≥ 24. The devcontainer image ships Node 24 LTS —
-this should never fail inside the container. If it does, confirm you are
-running inside the container and not on your host machine.
+`package.json` requires Node ≥ 24, and pins the exact pnpm version via the
+`packageManager` field. `postCreateCommand` runs `sudo corepack enable`
+before `pnpm install` as a safety net on images older than the point where
+`flutter-devcontainer` started activating Corepack/pnpm at build time;
+Corepack then reads the `packageManager` pin and downloads/enforces that
+exact version automatically — no explicit `corepack prepare` step needed.
+If `pnpm install` still fails, confirm `pnpm -v` matches the version pinned
+in `package.json` and that you're running inside the container, not on
+your host machine.
+
+### Container start prints a permissions warning
+
+On some hosts — especially Windows with Docker Desktop bind mounts — the
+container start banner may show something like:
+
+```
+⚠️  Warning: could not fix SSH private key permissions (insufficient permissions, and no passwordless sudo available). Continuing anyway.
+```
+
+This means a bind-mounted folder (e.g. your `.ssh` directory) is owned by
+`root` inside the container rather than `developer`, and no passwordless
+`sudo` was available to fix it. `entrypoint.dev.sh` treats this as
+non-fatal and continues starting the container rather than failing over a
+permissions cosmetic issue. If SSH or Husky hooks then misbehave, check the
+ownership of the affected host folder or ensure passwordless `sudo` is
+available for the `developer` user.
 
 ### ADB cannot find the host emulator
 
