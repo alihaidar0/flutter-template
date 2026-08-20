@@ -155,25 +155,47 @@
   // ── Lifecycle hooks ───────────────────────────────────────────────────────
   //
   // postCreateCommand — runs once when the container is first created.
-  //   Installs Husky + commitlint and registers all git hooks automatically.
-  //   Safe to run on a fresh template: package.json is always present and
-  //   `pnpm install` only installs the two declared devDependencies.
-  //   Flutter is NOT initialised here — the developer does that manually.
   //
-  //   Corepack (which provides pnpm) ships with Node but is dormant until
-  //   enabled, and its shim lives in /usr/local/bin, which is root-owned —
-  //   so activation needs `sudo`. `flutter-devcontainer` now activates
-  //   Corepack/pnpm at image build time, so this explicit step is normally
-  //   a no-op once you're on an image built after that fix; it's kept here
-  //   as a safety net so this template still works correctly against older
-  //   cached images. COREPACK_ENABLE_DOWNLOAD_PROMPT=0 suppresses the
-  //   interactive [Y/n] confirmation Corepack shows on first download,
-  //   which would otherwise hang postCreateCommand (it runs non-interactively).
+  //   1. git config --global --add safe.directory /workspace
+  //      On Windows/macOS, /workspace is a bind mount from the host, so the
+  //      container's 'developer' user does not match the host's file owner.
+  //      Git's ownership check then refuses to operate on it at all —
+  //      including from scripts run non-interactively — and fails with
+  //      "fatal: not in a git directory" or "dubious ownership". This must
+  //      run BEFORE `pnpm install`, because Husky's own `prepare` script
+  //      (triggered by install) immediately runs `git rev-parse` to register
+  //      hooks. welcome.sh (postStartCommand) sets this same safe.directory
+  //      entry too, but that runs later — this earlier copy is what makes
+  //      Husky's first-run succeed. Both calls are safe to keep: Git
+  //      no-ops when the same entry is added twice.
+  //
+  //   2. Corepack enable/prepare — installs Husky + commitlint and registers
+  //      all git hooks automatically. Safe to run on a fresh template:
+  //      package.json is always present and `pnpm install` only installs the
+  //      two declared devDependencies. Flutter is NOT initialised here — the
+  //      developer does that manually.
+  //
+  //      Corepack (which provides pnpm) ships with Node but is dormant until
+  //      enabled, and its shim lives in /usr/local/bin, which is root-owned —
+  //      so activation needs `sudo`. `flutter-devcontainer` now activates
+  //      Corepack/pnpm at image build time, so this explicit step is normally
+  //      a no-op once you're on an image built after that fix; it's kept here
+  //      as a safety net so this template still works correctly against older
+  //      cached images.
+  //
+  //      IMPORTANT: `sudo` starts a fresh process with a sanitized environment,
+  //      so `VAR=0 sudo cmd` does NOT pass VAR through to the sudo'd process —
+  //      only `sudo env VAR=0 cmd` (or `sudo -E`, which requires visudo config)
+  //      reliably does. COREPACK_ENABLE_DOWNLOAD_PROMPT=0 must be set this way
+  //      on BOTH the `enable` and `prepare` calls, since either can trigger
+  //      Corepack's first-run download. Without this, postCreateCommand runs
+  //      non-interactively and will hang forever on the [Y/n] prompt with no
+  //      way to answer it — the container creation silently stalls.
   //
   // postStartCommand — runs on every container start.
   //   Shows a context-aware Flutter getting-started banner.
   //
-  "postCreateCommand": "sudo corepack enable && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 sudo corepack prepare pnpm@latest --activate && pnpm install",
+  "postCreateCommand": "git config --global --add safe.directory /workspace && sudo env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack enable && sudo env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare pnpm@latest --activate && pnpm install",
   "postStartCommand": "bash /workspace/scripts/welcome.sh",
 
   // ── Remote user ───────────────────────────────────────────────────────────
