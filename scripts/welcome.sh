@@ -3,8 +3,11 @@ set -euo pipefail
 
 WORKSPACE=/workspace
 
-# Mark workspace as safe for git (avoids "dubious ownership" warnings)
-git config --global --add safe.directory "$WORKSPACE" 2>/dev/null || true
+# Mark workspace as safe for git (avoids "dubious ownership" warnings).
+# System scope (not --global) because ~/.gitconfig is bind-mounted read-only
+# from the host (see docker-compose.yml) — writing to it fails with
+# "Device or resource busy". /etc/gitconfig has no such restriction.
+sudo git config --system --add safe.directory "$WORKSPACE" 2>/dev/null || true
 
 # Auto-create .env from .env.example on first run
 if [ ! -f "$WORKSPACE/.env" ] && [ -f "$WORKSPACE/.env.example" ]; then

@@ -156,7 +156,7 @@
   //
   // postCreateCommand — runs once when the container is first created.
   //
-  //   1. git config --global --add safe.directory /workspace
+  //   1. sudo git config --system --add safe.directory /workspace
   //      On Windows/macOS, /workspace is a bind mount from the host, so the
   //      container's 'developer' user does not match the host's file owner.
   //      Git's ownership check then refuses to operate on it at all —
@@ -164,10 +164,16 @@
   //      "fatal: not in a git directory" or "dubious ownership". This must
   //      run BEFORE `pnpm install`, because Husky's own `prepare` script
   //      (triggered by install) immediately runs `git rev-parse` to register
-  //      hooks. welcome.sh (postStartCommand) sets this same safe.directory
-  //      entry too, but that runs later — this earlier copy is what makes
-  //      Husky's first-run succeed. Both calls are safe to keep: Git
-  //      no-ops when the same entry is added twice.
+  //      hooks.
+  //
+  //      System scope (not --global) because ~/.gitconfig is bind-mounted
+  //      READ-ONLY from the host (see docker-compose.yml, ":ro" suffix on the
+  //      .gitconfig volume). A --global write here fails outright with
+  //      "error: could not write config file ... Device or resource busy",
+  //      which aborts postCreateCommand entirely (exit code 4) and skips
+  //      Corepack/pnpm install too. /etc/gitconfig has no such restriction.
+  //      welcome.sh (postStartCommand) sets this same entry on every start as
+  //      a safety net — both calls are safe to keep, Git no-ops on duplicates.
   //
   //   2. Corepack enable/prepare — installs Husky + commitlint and registers
   //      all git hooks automatically. Safe to run on a fresh template:
@@ -195,7 +201,7 @@
   // postStartCommand — runs on every container start.
   //   Shows a context-aware Flutter getting-started banner.
   //
-  "postCreateCommand": "git config --global --add safe.directory /workspace && sudo env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack enable && sudo env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare pnpm@latest --activate && pnpm install",
+  "postCreateCommand": "sudo git config --system --add safe.directory /workspace && sudo env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack enable && sudo env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare pnpm@latest --activate && pnpm install",
   "postStartCommand": "bash /workspace/scripts/welcome.sh",
 
   // ── Remote user ───────────────────────────────────────────────────────────
