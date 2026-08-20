@@ -27,16 +27,37 @@ if [[ -d "$GITCONFIG" ]]; then
   exit 1
 fi
 
+# ── Helper: run a command as-is, fall back to non-interactive sudo, else warn ──
+# Bind-mounted folders from a Windows host are frequently owned by root inside
+# the container (Docker Desktop does not remap ownership for Windows binds).
+# A plain `chmod` as the non-root `developer` user then fails with
+# "Operation not permitted". We try the fix, escalate via `sudo -n` (no
+# password prompt — avoids hanging in non-interactive container startup), and
+# if even that fails, we warn and continue rather than kill the whole
+# container over a permissions cosmetic issue.
+run_or_warn() {
+  local description="$1"
+  shift
+  if "$@" 2>/dev/null; then
+    return 0
+  fi
+  if sudo -n "$@" 2>/dev/null; then
+    return 0
+  fi
+  echo "⚠️  Warning: could not fix $description (insufficient permissions, and no passwordless sudo available). Continuing anyway." >&2
+  return 0
+}
+
 # ── SSH key permissions ───────────────────────────────────────────────────────
 # Windows NTFS does not preserve Unix file permissions. Keys mounted from a
-# Windows host arrive with 0777 permissions, which SSH rejects. Fix them on
-# every container start so `git push` via SSH always works.
+# Windows host arrive with permissions SSH rejects. Fix them on every
+# container start so `git push` via SSH always works.
 SSH_DIR="/home/developer/.ssh"
 if [[ -d "$SSH_DIR" ]]; then
-  chmod 700 "$SSH_DIR"
-  find "$SSH_DIR" -type f -name "id_*" ! -name "*.pub" -exec chmod 600 {} +
-  find "$SSH_DIR" -type f -name "*.pub"                 -exec chmod 644 {} +
-  find "$SSH_DIR" -type f \( -name "config" -o -name "known_hosts*" \) \
+  run_or_warn "SSH directory permissions" chmod 700 "$SSH_DIR"
+  run_or_warn "SSH private key permissions" find "$SSH_DIR" -type f -name "id_*" ! -name "*.pub" -exec chmod 600 {} +
+  run_or_warn "SSH public key permissions"  find "$SSH_DIR" -type f -name "*.pub"                 -exec chmod 644 {} +
+  run_or_warn "SSH config/known_hosts permissions" find "$SSH_DIR" -type f \( -name "config" -o -name "known_hosts*" \) \
                             -exec chmod 600 {} +
 fi
 
@@ -45,7 +66,7 @@ fi
 # refuses to run the hook and silently skips commit-msg / pre-push enforcement.
 HUSKY_DIR="/workspace/.husky"
 if [[ -d "$HUSKY_DIR" ]]; then
-  find "$HUSKY_DIR" -type f ! -name "*.md" -exec chmod +x {} +
+  run_or_warn "Husky hook execute permissions" find "$HUSKY_DIR" -type f ! -name "*.md" -exec chmod +x {} +
 fi
 
 # ── Entrypoint dispatch ───────────────────────────────────────────────────────
