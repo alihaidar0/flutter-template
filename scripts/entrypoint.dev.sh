@@ -48,11 +48,24 @@ run_or_warn() {
   return 0
 }
 
+# ── SSH directory ownership ───────────────────────────────────────────────────
+# Bind-mounted from the host, frequently owned by root inside the container
+# (Docker Desktop does not remap ownership for Windows binds — same root
+# cause as the named-volume ownership fix below). This MUST run before the
+# "SSH key permissions" block that follows: chmod 700 on a root-owned
+# directory succeeds but leaves it inaccessible to `developer`, since only
+# the owning user can enter a 700 directory — `ls`/`cat`/`git push` then all
+# fail with a plain "Permission denied" that gives no hint the real problem
+# is ownership, not the permission bits themselves.
+SSH_DIR="/home/developer/.ssh"
+if [[ -d "$SSH_DIR" ]] && [[ "$(stat -c '%U' "$SSH_DIR")" != "developer" ]]; then
+  run_or_warn "ownership of $SSH_DIR" sudo chown -R developer:developer "$SSH_DIR"
+fi
+
 # ── SSH key permissions ───────────────────────────────────────────────────────
 # Windows NTFS does not preserve Unix file permissions. Keys mounted from a
 # Windows host arrive with permissions SSH rejects. Fix them on every
 # container start so `git push` via SSH always works.
-SSH_DIR="/home/developer/.ssh"
 if [[ -d "$SSH_DIR" ]]; then
   run_or_warn "SSH directory permissions" chmod 700 "$SSH_DIR"
   run_or_warn "SSH private key permissions" find "$SSH_DIR" -type f -name "id_*" ! -name "*.pub" -exec chmod 600 {} +
