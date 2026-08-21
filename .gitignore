@@ -53,6 +53,7 @@ Desktop.ini
 !.vscode/settings.json
 .vscode/*.local.json
 .idea/
+*.iml
 *.swp
 *~
 
