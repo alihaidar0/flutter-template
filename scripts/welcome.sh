@@ -14,6 +14,42 @@ if [ ! -f "$WORKSPACE/.env" ] && [ -f "$WORKSPACE/.env.example" ]; then
   cp "$WORKSPACE/.env.example" "$WORKSPACE/.env"
 fi
 
+# ── Gradle wrapper version sync ─────────────────────────────────────────────
+# `flutter create` pins whatever Gradle version ships with the Flutter SDK's
+# own project template — unrelated to, and usually older than, the Gradle
+# version this image pre-caches at $GRADLE_HOME (currently $GRADLE_VERSION,
+# set in the Dockerfile). Left alone, every generated project ignores the
+# pre-cached copy and silently re-downloads its own Gradle distribution on
+# first build — several minutes wasted for something already sitting on disk.
+# Runs on every container start so it self-heals regardless of when
+# `flutter create` was run, with no manual step for the developer.
+sync_gradle_wrapper() {
+  local wrapper_props="$WORKSPACE/android/gradle/wrapper/gradle-wrapper.properties"
+  [ -f "$wrapper_props" ] || return 0
+  [ -n "${GRADLE_VERSION:-}" ] || return 0
+
+  local current_version
+  current_version=$(grep -oP 'gradle-\K[0-9]+\.[0-9]+(\.[0-9]+)?' "$wrapper_props" | head -1)
+
+  if [ -n "$current_version" ] && [ "$current_version" != "$GRADLE_VERSION" ]; then
+    sed -i -E "s/gradle-[0-9]+\.[0-9]+(\.[0-9]+)?-(bin|all)/gradle-${GRADLE_VERSION}-\2/" "$wrapper_props"
+    echo "  🔧  Synced Gradle wrapper: ${current_version} → ${GRADLE_VERSION} (matches image pre-cache, avoids re-download)"
+  fi
+}
+sync_gradle_wrapper
+
+# ── Auto-connect to host emulator ───────────────────────────────────────────
+# The container runs its own local adb server (see docker-compose.yml for why
+# this replaced the earlier remote-server relay). If an emulator is already
+# running on the Windows host and listening on the default port 5555, this
+# connects automatically so `adb devices` / `flutter run` "just work" without
+# a manual `adb connect` step every session. Silent and non-fatal if no
+# emulator is running yet, or if adb isn't reachable for any reason — this is
+# a convenience, not a requirement, and must never block container startup.
+if command -v adb >/dev/null 2>&1; then
+  timeout 3 adb connect host.docker.internal:5555 >/dev/null 2>&1 || true
+fi
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  🐦  flutter-template — dev container ready"

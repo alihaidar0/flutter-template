@@ -61,6 +61,21 @@ if [[ -d "$SSH_DIR" ]]; then
                             -exec chmod 600 {} +
 fi
 
+# ── Named volume ownership ────────────────────────────────────────────────────
+# Docker creates a fresh named volume's mount point owned by root, since no
+# process runs as root to initialise it before the container's entrypoint
+# fires. The non-root `developer` user then has no write access — Gradle,
+# for example, fails to create its wrapper distribution lock file with a
+# misleading "error while downloading artifacts from the network" message,
+# when the real cause is a plain permissions problem, not the network.
+# Only need to actually chown when still root-owned; skip the no-op cost on
+# every subsequent start once corrected once.
+for dir in "/home/developer/.gradle" "/home/developer/.pub-cache" "/home/developer/Android"; do
+  if [[ -d "$dir" ]] && [[ "$(stat -c '%U' "$dir")" != "developer" ]]; then
+    run_or_warn "ownership of $dir" sudo chown -R developer:developer "$dir"
+  fi
+done
+
 # ── Husky hook permissions ────────────────────────────────────────────────────
 # Windows NTFS strips the execute bit from shell scripts. Without it, git
 # refuses to run the hook and silently skips commit-msg / pre-push enforcement.

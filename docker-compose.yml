@@ -38,24 +38,33 @@ services:
     environment:
       GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new"
 
-      # ── Host emulator (ADB) ────────────────────────────────────────────────
-      # Points the container's adb CLIENT at the HOST's adb SERVER instead of
-      # spinning up a second, separate adb server inside the container.
-      # Requires the host to run its adb server bound to all interfaces once:
-      #   adb kill-server && adb -a -P 5037 nodaemon server start &
-      # After that, `adb devices` inside the container "just works" — no
-      # `adb connect host.docker.internal:5555` step needed per session.
-      # host.docker.internal is resolved via the extra_hosts entry below.
-      ADB_SERVER_SOCKET: "tcp:host.docker.internal:5037"
+      # NOTE: no ADB_SERVER_SOCKET here — see "Host emulator (ADB)" below.
 
     ports:
       # flutter run -d web-server --web-port 8080 --web-hostname 0.0.0.0
       - "8080:8080"
 
-    # ── Host gateway ─────────────────────────────────────────────────────────
-    # Resolves host.docker.internal inside the container so it can reach the
-    # host's adb server (see ADB_SERVER_SOCKET above). On Linux this is not
-    # automatic — the host-gateway special value adds it explicitly.
+    # ── Host emulator (ADB) ─────────────────────────────────────────────────
+    # The container runs its OWN local adb server (the default — no
+    # ADB_SERVER_SOCKET override) and connects OUT to the emulator running on
+    # the Windows host via `adb connect host.docker.internal:5555`.
+    #
+    # An earlier version of this file pointed the container's adb CLIENT at
+    # the host's adb SERVER instead (ADB_SERVER_SOCKET=tcp:host.docker.internal:5037).
+    # That relayed every adb command to the host correctly, but it also meant
+    # every `adb forward` — which is exactly how Flutter's VM Service
+    # (hot reload / hot restart) connection is established — got bound on the
+    # HOST's own loopback interface, not the container's. `flutter run` inside
+    # the container had no way to reach that forwarded port, so the app would
+    # install and launch fine but hot reload/restart would hang forever on
+    # "Connecting to the VM Service...".
+    #
+    # With the adb server running locally in the container instead, any port
+    # it forwards is on the container's own localhost — directly reachable by
+    # `flutter run`, which also runs in the container. See "Connecting to a
+    # Host Emulator" in README.md for full setup steps.
+    #
+    # host.docker.internal is resolved via the extra_hosts entry below.
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
