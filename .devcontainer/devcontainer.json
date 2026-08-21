@@ -18,9 +18,12 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        // ── Flutter & Dart ───────────────────────────────────────────────────
+        // ── Flutter & Dart ────────────────────────────────────────────────────
         "Dart-Code.flutter",
         "Dart-Code.dart-code",
+        "Nash.awesome-flutter-snippets",
+        "localizely.flutter-intl",
+        "pflannery.vscode-versionlens",
 
         // ── Git ──────────────────────────────────────────────────────────────
         "eamodio.gitlens",
@@ -29,19 +32,28 @@
         // ── Docker ───────────────────────────────────────────────────────────
         "ms-azuretools.vscode-docker",
 
+        // ── CI/CD ────────────────────────────────────────────────────────────
+        "github.vscode-github-actions",
+
         // ── Utilities ────────────────────────────────────────────────────────
         "redhat.vscode-yaml",
         "PKief.material-icon-theme",
         "aaron-bond.better-comments",
+        "gruntfuggly.todo-tree",
         "usernamehw.errorlens",
         "streetsidesoftware.code-spell-checker",
         "mikestead.dotenv",
+        "oderwat.indent-rainbow",
+        "EditorConfig.EditorConfig",
+        "davidanson.vscode-markdownlint",
+        "bierner.markdown-mermaid",
+        "0xTanzim.filetree-pro",
 
         // ── AI ───────────────────────────────────────────────────────────────
         "GitHub.copilot",
-        "GitHub.copilot-chat"
+        "GitHub.copilot-chat",
+        "DorianMassoulier.repomix-runner"
       ],
-
       "settings": {
         // ── Editor ────────────────────────────────────────────────────────────
         "editor.tabSize": 2,
