@@ -48,11 +48,24 @@ run_or_warn() {
   return 0
 }
 
+# ── SSH directory ownership ───────────────────────────────────────────────────
+# Bind-mounted from the host, frequently owned by root inside the container
+# (Docker Desktop does not remap ownership for Windows binds — same root
+# cause as the named-volume ownership fix below). This MUST run before the
+# "SSH key permissions" block that follows: chmod 700 on a root-owned
+# directory succeeds but leaves it inaccessible to `developer`, since only
+# the owning user can enter a 700 directory — `ls`/`cat`/`git push` then all
+# fail with a plain "Permission denied" that gives no hint the real problem
+# is ownership, not the permission bits themselves.
+SSH_DIR="/home/developer/.ssh"
+if [[ -d "$SSH_DIR" ]] && [[ "$(stat -c '%U' "$SSH_DIR")" != "developer" ]]; then
+  run_or_warn "ownership of $SSH_DIR" sudo chown -R developer:developer "$SSH_DIR"
+fi
+
 # ── SSH key permissions ───────────────────────────────────────────────────────
 # Windows NTFS does not preserve Unix file permissions. Keys mounted from a
 # Windows host arrive with permissions SSH rejects. Fix them on every
 # container start so `git push` via SSH always works.
-SSH_DIR="/home/developer/.ssh"
 if [[ -d "$SSH_DIR" ]]; then
   run_or_warn "SSH directory permissions" chmod 700 "$SSH_DIR"
   run_or_warn "SSH private key permissions" find "$SSH_DIR" -type f -name "id_*" ! -name "*.pub" -exec chmod 600 {} +
@@ -60,6 +73,21 @@ if [[ -d "$SSH_DIR" ]]; then
   run_or_warn "SSH config/known_hosts permissions" find "$SSH_DIR" -type f \( -name "config" -o -name "known_hosts*" \) \
                             -exec chmod 600 {} +
 fi
+
+# ── Named volume ownership ────────────────────────────────────────────────────
+# Docker creates a fresh named volume's mount point owned by root, since no
+# process runs as root to initialise it before the container's entrypoint
+# fires. The non-root `developer` user then has no write access — Gradle,
+# for example, fails to create its wrapper distribution lock file with a
+# misleading "error while downloading artifacts from the network" message,
+# when the real cause is a plain permissions problem, not the network.
+# Only need to actually chown when still root-owned; skip the no-op cost on
+# every subsequent start once corrected once.
+for dir in "/home/developer/.gradle" "/home/developer/.pub-cache" "/home/developer/Android"; do
+  if [[ -d "$dir" ]] && [[ "$(stat -c '%U' "$dir")" != "developer" ]]; then
+    run_or_warn "ownership of $dir" sudo chown -R developer:developer "$dir"
+  fi
+done
 
 # ── Husky hook permissions ────────────────────────────────────────────────────
 # Windows NTFS strips the execute bit from shell scripts. Without it, git

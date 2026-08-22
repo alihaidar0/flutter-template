@@ -18,9 +18,12 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        // ── Flutter & Dart ───────────────────────────────────────────────────
+        // ── Flutter & Dart ────────────────────────────────────────────────────
         "Dart-Code.flutter",
         "Dart-Code.dart-code",
+        "Nash.awesome-flutter-snippets",
+        "localizely.flutter-intl",
+        "pflannery.vscode-versionlens",
 
         // ── Git ──────────────────────────────────────────────────────────────
         "eamodio.gitlens",
@@ -29,19 +32,28 @@
         // ── Docker ───────────────────────────────────────────────────────────
         "ms-azuretools.vscode-docker",
 
+        // ── CI/CD ────────────────────────────────────────────────────────────
+        "github.vscode-github-actions",
+
         // ── Utilities ────────────────────────────────────────────────────────
         "redhat.vscode-yaml",
         "PKief.material-icon-theme",
         "aaron-bond.better-comments",
+        "gruntfuggly.todo-tree",
         "usernamehw.errorlens",
         "streetsidesoftware.code-spell-checker",
         "mikestead.dotenv",
+        "oderwat.indent-rainbow",
+        "EditorConfig.EditorConfig",
+        "davidanson.vscode-markdownlint",
+        "bierner.markdown-mermaid",
+        "0xTanzim.filetree-pro",
 
         // ── AI ───────────────────────────────────────────────────────────────
         "GitHub.copilot",
-        "GitHub.copilot-chat"
+        "GitHub.copilot-chat",
+        "DorianMassoulier.repomix-runner"
       ],
-
       "settings": {
         // ── Editor ────────────────────────────────────────────────────────────
         "editor.tabSize": 2,
@@ -155,25 +167,56 @@
   // ── Lifecycle hooks ───────────────────────────────────────────────────────
   //
   // postCreateCommand — runs once when the container is first created.
-  //   Installs Husky + commitlint and registers all git hooks automatically.
-  //   Safe to run on a fresh template: package.json is always present and
-  //   `pnpm install` only installs the two declared devDependencies.
-  //   Flutter is NOT initialised here — the developer does that manually.
   //
-  //   Corepack (which provides pnpm) ships with Node but is dormant until
-  //   enabled, and its shim lives in /usr/local/bin, which is root-owned —
-  //   so activation needs `sudo`. `flutter-devcontainer` now activates
-  //   Corepack/pnpm at image build time, so this explicit step is normally
-  //   a no-op once you're on an image built after that fix; it's kept here
-  //   as a safety net so this template still works correctly against older
-  //   cached images. COREPACK_ENABLE_DOWNLOAD_PROMPT=0 suppresses the
-  //   interactive [Y/n] confirmation Corepack shows on first download,
-  //   which would otherwise hang postCreateCommand (it runs non-interactively).
+  //   1. sudo git config --system --add safe.directory /workspace
+  //      On Windows/macOS, /workspace is a bind mount from the host, so the
+  //      container's 'developer' user does not match the host's file owner.
+  //      Git's ownership check then refuses to operate on it at all —
+  //      including from scripts run non-interactively — and fails with
+  //      "fatal: not in a git directory" or "dubious ownership". This must
+  //      run BEFORE `pnpm install`, because Husky's own `prepare` script
+  //      (triggered by install) immediately runs `git rev-parse` to register
+  //      hooks.
+  //
+  //      System scope (not --global) because ~/.gitconfig is bind-mounted
+  //      READ-ONLY from the host (see docker-compose.yml, ":ro" suffix on the
+  //      .gitconfig volume). A --global write here fails outright with
+  //      "error: could not write config file ... Device or resource busy",
+  //      which aborts postCreateCommand entirely (exit code 4) and skips
+  //      Corepack/pnpm install too. /etc/gitconfig has no such restriction.
+  //      welcome.sh (postStartCommand) sets this same entry on every start as
+  //      a safety net — both calls are safe to keep, Git no-ops on duplicates.
+  //
+  //   2. Corepack enable/prepare — installs Husky + commitlint and registers
+  //      all git hooks automatically. Safe to run on a fresh template:
+  //      package.json is always present and `pnpm install` only installs the
+  //      two declared devDependencies. Flutter is NOT initialised here — the
+  //      developer does that manually.
+  //
+  //      Corepack (which provides pnpm) ships with Node but is dormant until
+  //      enabled, and its shim lives in /usr/local/bin, which is root-owned —
+  //      so activation needs `sudo`. `flutter-devcontainer` now activates
+  //      Corepack/pnpm at image build time, so this explicit step is normally
+  //      a no-op once you're on an image built after that fix; it's kept here
+  //      as a safety net so this template still works correctly against older
+  //      cached images.
+  //
+  //      COREPACK_ENABLE_DOWNLOAD_PROMPT=0 is set (via `sudo env`, since a
+  //      bare `VAR=0 sudo cmd` does not survive the sudo boundary) but this
+  //      flag is known to be unreliable across Corepack versions — see
+  //      nodejs/corepack#727 and #550, where the prompt appears despite the
+  //      flag being set correctly. Since postCreateCommand runs inside an
+  //      allocated pseudo-terminal, the prompt can genuinely block forever
+  //      with no way to answer it. `yes |` is the robust fix: it feeds a
+  //      continuous stream of "y" into stdin, so any prompt Corepack shows
+  //      is answered automatically regardless of whether the env var took
+  //      effect. The env var is kept as the documented, forward-compatible
+  //      signal; `yes` is the belt-and-braces guarantee.
   //
   // postStartCommand — runs on every container start.
   //   Shows a context-aware Flutter getting-started banner.
   //
-  "postCreateCommand": "sudo corepack enable && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 sudo corepack prepare pnpm@latest --activate && pnpm install",
+  "postCreateCommand": "sudo git config --system --add safe.directory /workspace && yes | sudo env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack enable && yes | sudo env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare pnpm@latest --activate && pnpm install",
   "postStartCommand": "bash /workspace/scripts/welcome.sh",
 
   // ── Remote user ───────────────────────────────────────────────────────────

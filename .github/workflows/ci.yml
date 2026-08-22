@@ -147,7 +147,10 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: dart pub audit
+      - name: Security audit
+        run: |
+          dart pub global activate dart_audit 0.1.0
+          dart_audit
 
   # ── Flutter doctor ───────────────────────────────────────────────────────────
   doctor:

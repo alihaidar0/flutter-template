@@ -36,6 +36,8 @@ GoogleService-Info.plist
 
 # ── Node ──────────────────────────────────────────────────────────────────────
 node_modules/
+.pnpm-store/
+pnpm-debug.log*
 
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
@@ -49,7 +51,9 @@ Desktop.ini
 !.vscode/extensions.json
 !.vscode/launch.json
 !.vscode/settings.json
+.vscode/*.local.json
 .idea/
+*.iml
 *.swp
 *~
 

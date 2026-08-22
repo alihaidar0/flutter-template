@@ -44,7 +44,8 @@
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
-      "flutterMode": "debug"
+      "flutterMode": "debug",
+      "deviceId": "host.docker.internal:5555"
     },
     {
       "name": "Flutter (Attach)",
