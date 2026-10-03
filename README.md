@@ -89,22 +89,34 @@ flutter-template/
 │   │   ├── bug_report.yml
 │   │   ├── feature_request.yml
 │   │   └── config.yml                ← links "image" bugs to flutter-devcontainer
+│   ├── rulesets/
+│   │   ├── main-protect.json         ← importable ruleset: protects main
+│   │   ├── develop-protect.json      ← importable ruleset: protects develop
+│   │   └── tags-protect.json         ← importable ruleset: protects release tags
+│   ├── scripts/
+│   │   └── check-image-contract.sh   ← compares the template with the dev image
 │   ├── workflows/
-│   │   ├── build.yml                 ← production APK/AAB/Web builds
-│   │   ├── ci.yml                    ← three-tier graceful-degradation CI
-│   │   └── labels.yml                ← syncs labels.yml to GitHub
+│   │   ├── build.yml                 ← release APK/AAB/Web builds
+│   │   ├── ci.yml                    ← PR validation → "CI passed"
+│   │   ├── image-contract.yml        ← weekly template ↔ image check (template repo only)
+│   │   ├── labels.yml                ← syncs labels.yml to GitHub
+│   │   └── release.yml               ← calendar-versioned releases (template repo only)
+│   ├── CODE_OF_CONDUCT.md            ← Contributor Covenant 2.1
 │   ├── CODEOWNERS
 │   ├── PULL_REQUEST_TEMPLATE.md
 │   ├── dependabot.yml                ← Actions + pub + npm, PRs → develop
-│   └── labels.yml
+│   ├── labels.yml
+│   └── release.yml                   ← release-notes categories (by PR label)
 ├── .husky/
 │   ├── commit-msg                    ← enforces Conventional Commits
 │   ├── pre-commit                    ← format + analyze (skips pre-init)
 │   └── pre-push                      ← blocks direct push to main
 ├── .vscode/
-│   ├── extensions.json               ← host-side recommended extensions
+│   ├── extensions.json               ← recommends Dev Containers (the rest installs in the container)
 │   ├── launch.json                   ← Flutter debug configs (forward-ready)
-│   └── settings.json                 ← host-side editor defaults
+│   └── settings.json                 ← shared editor settings (host and container)
+├── docs/
+│   └── github-setup.md               ← repository settings, rulesets, bootstrap order
 ├── scripts/
 │   ├── entrypoint.dev.sh             ← fixes SSH/Husky/volume permissions on start
 │   └── welcome.sh                    ← tier-aware getting-started banner + adb connect
@@ -121,46 +133,53 @@ flutter-template/
 ├── commitlint.config.mjs
 ├── docker-compose.yml                ← starts the container, mounts caches
 ├── package.json                      ← husky + commitlint only
+├── pnpm-lock.yaml
 ├── pnpm-workspace.yaml
-└── repomix.config.json               ← AI-context snapshot config
+└── repomix.config.json               ← Repomix config for a single-file repository snapshot
 ```
 
 ---
 
 ## What's included
 
-| Path                               | Purpose                                                                                         |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `.devcontainer/devcontainer.json`  | VS Code dev container config — pulls pre-built image, sets `developer` user, forwards port 8080 |
-| `docker-compose.yml`               | Starts the container, mounts project + SSH + Git identity + named volume caches, resolves the host gateway |
-| `scripts/entrypoint.dev.sh`        | Fixes SSH key, Husky hook, and named-volume ownership on every container start — falls back to non-interactive `sudo` and warns instead of failing when a bind-mounted folder is root-owned |
-| `scripts/welcome.sh`               | Context-aware banner — shows next steps based on project tier, auto-syncs the Gradle wrapper version, and attempts to connect to a running host emulator |
-| `.husky/commit-msg`                | Enforces Conventional Commits format via commitlint                                             |
-| `.husky/pre-commit`                | `dart format` + `flutter analyze` (skips cleanly pre-`flutter create`)                          |
-| `.husky/pre-push`                  | Blocks direct push to `main`                                                                    |
-| `commitlint.config.mjs`            | Extends `@commitlint/config-conventional` with explicit type rules                              |
-| `package.json`                     | Declares husky + commitlint only — no app dependencies, Node ≥ 24                               |
-| `.github/workflows/ci.yml`         | Three-tier CI — graceful degradation, skips cleanly on fresh template                           |
-| `.github/workflows/build.yml`      | Production builds — APK, AAB, Web — triggered on merge to `main`                                |
-| `.github/workflows/labels.yml`     | Syncs `.github/labels.yml` to GitHub repository labels                                          |
-| `.github/dependabot.yml`           | Weekly updates for Actions + pub + npm (Node 24 frozen) — PRs target `develop`                  |
-| `.github/labels.yml`               | Label definitions — name, colour, description                                                   |
-| `.github/CODEOWNERS`               | Auto-requests reviewer on every PR                                                              |
-| `.github/PULL_REQUEST_TEMPLATE.md` | PR checklist — pinned versions, zero-code rule, target branch                                   |
-| `.github/ISSUE_TEMPLATE/`          | Structured bug report + feature request forms, contact link to `flutter-devcontainer`           |
-| `.vscode/extensions.json`          | Host-side extension recommendations — Dev Containers, Docker, GitLens                           |
-| `.vscode/settings.json`            | Host-side editor defaults, tracked as shared team config                                        |
-| `.vscode/launch.json`              | Flutter debug configurations — web server, Chrome, Android (active once `lib/main.dart` exists) |
-| `.env.example`                     | Template for `.env` — copy and fill in your values                                              |
-| `.editorconfig`                    | Consistent indentation/line endings across editors                                              |
-| `.gitattributes`                   | Enforces LF line endings — prevents CRLF breakage on Windows                                    |
-| `.gitignore`                       | Flutter, Dart, Node, Android, iOS, OS, editor, secrets                                          |
-| `.dockerignore`                    | Excludes dev tooling from any future production Docker build context                            |
-| `LICENSE`                          | MIT                                                                                              |
-| `SECURITY.md`                      | Vulnerability reporting policy                                                                  |
-| `CONTRIBUTING.md`                  | Branching model, commit convention, PR process                                                  |
-| `CHANGELOG.md`                     | Keep a Changelog — tracks template-level (not app-level) changes                                |
-| `repomix.config.json`              | Config for generating the AI-readable repo snapshot                                             |
+| Path | Purpose |
+| --- | --- |
+| `.devcontainer/devcontainer.json` | VS Code dev container config — pulls pre-built image, sets `developer` user, forwards port 8080 |
+| `docker-compose.yml` | Starts the container, mounts project + SSH + Git identity + named volume caches, resolves the host gateway |
+| `scripts/entrypoint.dev.sh` | Fixes SSH key, Husky hook, and named-volume ownership on every container start — falls back to non-interactive `sudo` and warns instead of failing when a bind-mounted folder is root-owned |
+| `scripts/welcome.sh` | Context-aware banner — shows next steps based on project tier, auto-syncs the Gradle wrapper version, and attempts to connect to a running host emulator |
+| `.husky/commit-msg` | Enforces Conventional Commits format via commitlint |
+| `.husky/pre-commit` | `dart format` + `flutter analyze` (skips cleanly pre-`flutter create`) |
+| `.husky/pre-push` | Blocks direct push to `main` |
+| `commitlint.config.mjs` | Extends `@commitlint/config-conventional` with explicit type rules |
+| `package.json`, `pnpm-lock.yaml` | Declare and lock husky + commitlint only — no app dependencies, Node ≥ 24, pnpm kept equal to the version the dev image pre-caches |
+| `.github/workflows/ci.yml` | PR validation: source-branch rule, lint, format, commit messages, template guard and the tiered Flutter checks, aggregated into **CI passed** |
+| `.github/workflows/build.yml` | Release builds — APK, AAB, Web — triggered on merge to `main` |
+| `.github/workflows/labels.yml` | Syncs `.github/labels.yml` to GitHub repository labels |
+| `.github/workflows/release.yml` | Publishes a calendar-versioned GitHub Release when the template changes (template repository only) |
+| `.github/workflows/image-contract.yml` | Weekly check that the template still matches the dev image (template repository only) |
+| `.github/scripts/check-image-contract.sh` | The comparison behind that check: pnpm and Node versions, image name, documented aliases |
+| `.github/rulesets/` | Importable rulesets for `main`, `develop` and `v*` tags — see [`docs/github-setup.md`](docs/github-setup.md) |
+| `.github/dependabot.yml` | Weekly updates for Actions + pub + npm (Node 24 frozen, 7-day cooldown) — PRs target `develop` |
+| `.github/labels.yml`, `.github/release.yml` | Label definitions and the release-notes categories built from them |
+| `.github/CODEOWNERS` | Auto-requests reviewer on every PR |
+| `.github/PULL_REQUEST_TEMPLATE.md` | PR checklist — pinned versions, zero-code rule, target branch, image contract |
+| `.github/ISSUE_TEMPLATE/` | Structured bug report + feature request forms, contact link to `flutter-devcontainer` |
+| `.github/CODE_OF_CONDUCT.md` | Contributor Covenant 2.1 |
+| `docs/github-setup.md` | Every GitHub setting, ruleset and bootstrap step for this repository and for each project created from it |
+| `.vscode/extensions.json` | Recommends the Dev Containers extension; every other extension is installed in the container from `devcontainer.json` |
+| `.vscode/settings.json` | Shared editor settings, applied on the host and inside the container (indentation and line endings come from `.editorconfig`) |
+| `.vscode/launch.json` | Flutter debug configurations — debug, profile, web server, host Android emulator, attach (active once `lib/main.dart` exists) |
+| `.env.example` | Template for `.env` — copy and fill in your values |
+| `.editorconfig` | Consistent indentation/line endings across editors |
+| `.gitattributes` | Enforces LF line endings — prevents CRLF breakage on Windows |
+| `.gitignore` | Flutter, Dart, Node, Android, iOS, OS, editor, secrets |
+| `.dockerignore` | Excludes dev tooling from any future production Docker build context |
+| `LICENSE` | MIT |
+| `SECURITY.md` | Vulnerability reporting policy and supply-chain controls |
+| `CONTRIBUTING.md` | Scope, branching model, commit convention, PR process |
+| `CHANGELOG.md` | Keep a Changelog — tracks template-level (not app-level) changes |
+| `repomix.config.json` | Config for generating a single-file snapshot of the repository |
 
 ### What is NOT included
 
@@ -182,40 +201,52 @@ App Store, self-hosted). Add a deployment workflow per project as needed.
 
 ## CI/CD Pipelines
 
-### `ci.yml` — Pull Request & Branch CI
+### `ci.yml` — Pull Request CI
 
-Triggered on every push and pull request. Uses **three-tier graceful degradation**
-so the CI never fails on a fresh template.
+Runs on every pull request into `develop` or `main` (and on demand). Uses
+**three-tier graceful degradation** so the CI never fails on a fresh template.
 
-| Tier | Condition                       | What runs                                               |
-| ---- | -------------------------------- | -------------------------------------------------------- |
-| 1    | No `pubspec.yaml`                | Nothing — all checks skipped, CI passes automatically   |
-| 2    | `pubspec.yaml` only (no lock)    | `flutter doctor` only                                    |
-| 3    | `pubspec.yaml` + `pubspec.lock`  | Full CI: format, analyze, test, coverage, audit, doctor  |
+| Tier | Condition                       | What runs                                                          |
+| ---- | -------------------------------- | ------------------------------------------------------------------- |
+| 1    | No `pubspec.yaml`                | Repository checks only — every Flutter job is skipped, CI passes   |
+| 2    | `pubspec.yaml` only (no lock)    | Repository checks + `flutter doctor`                               |
+| 3    | `pubspec.yaml` + `pubspec.lock`  | Everything: format, analyze, test, coverage, audit, doctor         |
+
+Repository checks (every tier):
+
+- **Verify source branch** — a PR into `main` must come from `develop` of this repository.
+- **Lint** — ShellCheck for the scripts and git hooks, actionlint and zizmor (workflow security) for the workflows.
+- **Format** — LF line endings, no trailing whitespace, final newline.
+- **Commit messages** — every commit of the PR must follow Conventional Commits (the same rule the Husky hook enforces locally).
+- **Node dependency audit** — `pnpm audit` on `pnpm-lock.yaml` (Husky, commitlint); high and critical advisories fail.
+- **Template guard** — template repository only: it fails if Flutter source or native folders appear, or if a script or hook loses its executable bit in Git.
 
 **Job graph (Tier 3):**
 
 ```
-detect ──┬── format  ──┐
-         ├── analyze ──┼── test
-         ├── audit      │
-         └── doctor     └── ci-passed (required status check)
+detect ──┬── flutter-format  ──┐
+         ├── flutter-analyze ──┼── flutter-test
+         ├── flutter-audit      │
+         └── flutter-doctor     └── ci-passed (required status check)
 ```
 
-`ci-passed` is the single required status check to configure in branch protection.
+`ci-passed` (shown as **CI passed**) is the single required status check to
+configure in branch protection. It fails if any job failed or was cancelled;
+jobs skipped by design count as passed.
 
-Every job declares an explicit least-privilege `permissions: contents: read`
-and a `timeout-minutes` so a stuck runner fails fast instead of hanging.
+Every job declares an explicit least-privilege `permissions:` block and a
+`timeout-minutes` so a stuck runner fails fast instead of hanging, and every
+action is pinned to a full commit SHA.
 
-| Job       | Command                               | Purpose                                          |
-| --------- | -------------------------------------- | -------------------------------------------------- |
-| `format`  | `dart format --set-exit-if-changed .` | Formatting enforcement                             |
-| `analyze` | `flutter analyze --fatal-infos`       | Static analysis + lint                             |
-| `test`    | `flutter test --coverage`             | Unit + widget tests (skipped if no `test/` dir)    |
-| `audit`   | `dart pub audit`                      | Dependency vulnerability scan                      |
-| `doctor`  | `flutter doctor -v`                   | Environment sanity check                           |
+| Job | Command | Purpose |
+| --- | --- | --- |
+| `flutter-format` | `dart format --set-exit-if-changed .` | Formatting enforcement |
+| `flutter-analyze` | `flutter analyze --fatal-infos` | Static analysis + lint |
+| `flutter-test` | `flutter test --coverage` | Unit + widget tests (skipped if no `test/` dir) |
+| `flutter-audit` | OSV-Scanner on `pubspec.lock` | Every resolved package checked against the OSV vulnerability database (Dart has no built-in audit command) |
+| `flutter-doctor` | `flutter doctor -v` | Environment sanity check |
 
-### `build.yml` — Production Builds
+### `build.yml` — Release Builds
 
 Triggered on merge to `main` (path-filtered to Flutter source files only) or
 manually via workflow dispatch. Skipped entirely if `pubspec.yaml` /
@@ -223,12 +254,27 @@ manually via workflow dispatch. Skipped entirely if `pubspec.yaml` /
 
 | Job         | Runner          | Output            | Retained |
 | ----------- | --------------- | ------------------ | -------- |
-| `build-apk` | `ubuntu-latest` | `app-release.apk` | 14 days  |
-| `build-aab` | `ubuntu-latest` | `app-release.aab` | 14 days  |
-| `build-web` | `ubuntu-latest` | `build/web/`       | 14 days  |
+| `build-apk` | `ubuntu-24.04` | `app-release.apk` | 14 days  |
+| `build-aab` | `ubuntu-24.04` | `app-release.aab` | 14 days  |
+| `build-web` | `ubuntu-24.04` | `build/web/`       | 14 days  |
 
 Deployment (Play Store, Firebase App Distribution, App Store, etc.) is
 intentionally omitted — add it per project depending on your target.
+
+### Template-only workflows
+
+`release.yml` publishes a calendar-versioned GitHub Release (`vYYYY.MM.DD`)
+when a promotion changes the template, and `image-contract.yml` checks every
+Monday that the template still matches the `flutter-devcontainer` image (pnpm
+and Node versions, image name, documented aliases). Both only run in the
+template repository itself, never in a project generated from it, and neither
+is part of the required **CI passed** check.
+
+### Repository settings
+
+Branch protection, merge settings, security features and the first-time
+bootstrap order are documented in [`docs/github-setup.md`](docs/github-setup.md).
+The three rulesets in `.github/rulesets/` are importable as they are.
 
 ---
 
@@ -377,7 +423,9 @@ ever missing.
 | `pre-push`   | Every `git push`   | Blocks direct push to `main`                                                   |
 
 Hooks are re-enabled on every container start via `entrypoint.dev.sh`, which
-also fixes the execute-bit permissions that Windows NTFS strips.
+also fixes the execute-bit permissions that Windows NTFS strips. CI checks the
+commit messages of every pull request again, so a commit made without the hooks
+(web editor, another machine) is still caught.
 
 ---
 
@@ -422,7 +470,6 @@ All aliases are baked into the base image by `flutter-devcontainer`. A quick ref
 | `fbuildapk`    | `flutter build apk --release`                                        |
 | `fbuildaab`    | `flutter build appbundle --release`                                  |
 | `fbuildweb`    | `flutter build web --release`                                        |
-| `daudit`       | `dart pub audit`                                                     |
 | `adbdevices`   | `adb devices`                                                        |
 | `adbrestart`   | `adb kill-server && adb start-server`                                |
 | `gs`           | `git status`                                                         |
@@ -451,7 +498,9 @@ All aliases are baked into the base image by `flutter-devcontainer`. A quick ref
 
 Automated dependency updates run every Monday at 09:00 UTC, opening PRs
 against **`develop`** (not `main`) — matching `flutter-devcontainer`'s flow.
-Promote to `main` once verified.
+Promote to `main` once verified. A 7-day cooldown delays each upstream release
+before it is proposed, so a compromised or broken release can be yanked before
+it reaches a pull request.
 
 | Ecosystem        | Scope                 | Notes                                                     |
 | ------------------ | ------------------------ | ------------------------------------------------------------ |
@@ -489,7 +538,9 @@ Found a vulnerability? Do not open a public issue — see
 ## Contributing
 
 Branching model, commit convention, and PR process are documented in
-[`CONTRIBUTING.md`](CONTRIBUTING.md).
+[`CONTRIBUTING.md`](CONTRIBUTING.md); participation is governed by the
+[Code of Conduct](.github/CODE_OF_CONDUCT.md). Repository settings, rulesets
+and the first-time bootstrap are in [`docs/github-setup.md`](docs/github-setup.md).
 
 ---
 
