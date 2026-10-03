@@ -25,6 +25,21 @@ responsibility — this policy covers only the template itself.
 Only the latest commit on `main` is supported. This is a template, not a
 versioned library — always start new projects from the current `main`.
 
+## Supply chain
+
+- Every GitHub Action is pinned to a full commit SHA, workflows run with
+  least-privilege `permissions:` and `persist-credentials: false`, and
+  `${{ }}` values reach scripts only through `env:`. Dependabot proposes
+  updates weekly with a 7-day cooldown, and `actionlint` checks every
+  workflow on each pull request.
+- Once a project has a `pubspec.lock`, pull requests scan every resolved
+  package against the OSV vulnerability database.
+- The npm dependencies (Husky, commitlint) are locked in `pnpm-lock.yaml`.
+- The template needs no secrets; deployment credentials belong in
+  environment secrets added per project.
+- A weekly check compares the template with the `flutter-devcontainer` image
+  so the two cannot drift apart unnoticed.
+
 ## Reporting a Vulnerability
 
 **Please do not open a public issue for security vulnerabilities.**

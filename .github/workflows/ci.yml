@@ -1,17 +1,25 @@
+# .github/workflows/ci.yml
+#
+# Pull-request validation. The single required status check for branch
+# protection is the aggregate job "CI passed" at the bottom of this file.
+#
+# Repository checks (every tier): source branch, lint (ShellCheck, actionlint,
+# zizmor), format, commit messages, Node dependency audit, template guard.
+#
+# This workflow is copied into every project created from the template, so every
+# job has to pass on a fresh checkout that has no Flutter project yet. The
+# Flutter jobs switch on in tiers:
+#
+#   Tier 1  no pubspec.yaml               all Flutter jobs are skipped
+#   Tier 2  pubspec.yaml, no lock file    flutter doctor only
+#   Tier 3  pubspec.yaml + pubspec.lock   format, analyze, test, audit, doctor
 name: CI
 
 on:
-  push:
-    branches: ["**"]
-    paths-ignore:
-      - "**.md"
-      - ".gitignore"
-      - ".editorconfig"
-      - "LICENSE"
-      - ".vscode/**"
-      - "docs/**"
   pull_request:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
@@ -19,100 +27,303 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  # ── Tier detection ───────────────────────────────────────────────────────────
-  # Tier 1: no pubspec.yaml          → skip everything, CI passes automatically
-  # Tier 2: pubspec.yaml only        → flutter doctor only
-  # Tier 3: pubspec.yaml + lock file → full CI: format, analyze, test, audit, doctor
+  # Only `develop` (of this repository) may open a pull request into `main`.
+  # GitHub rulesets cannot restrict a PR's source branch, so it is enforced here
+  # and made mandatory through the aggregate "CI passed" check.
+  verify-source-branch:
+    name: Verify source branch
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Only develop may target main
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          if [ "$HEAD_REF" != "develop" ] || [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "::error::Pull requests into main must come from the develop branch of $BASE_REPO (got $HEAD_REPO:$HEAD_REF)."
+            exit 1
+          fi
+          echo "Source branch OK: $HEAD_REPO:$HEAD_REF -> main"
+
+  # ── Tier detection ───────────────────────────────────────────────────────
   detect:
     name: Detect project tier
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
-    permissions:
-      contents: read
     outputs:
       tier: ${{ steps.check.outputs.tier }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            pubspec.yaml
+            pubspec.lock
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
 
       - name: Determine project tier
         id: check
         run: |
-          echo "──────────────────────────────────────────"
-          echo "  Detecting project tier..."
-          echo "──────────────────────────────────────────"
-
           if [[ -f "pubspec.yaml" && -f "pubspec.lock" ]]; then
             echo "tier=3" >> "$GITHUB_OUTPUT"
-            echo "Tier 3 — pubspec.yaml + pubspec.lock found: full CI active"
+            echo "Tier 3 — pubspec.yaml and pubspec.lock found: full CI is active"
           elif [[ -f "pubspec.yaml" ]]; then
             echo "tier=2" >> "$GITHUB_OUTPUT"
-            echo "Tier 2 — pubspec.yaml found (no lock): flutter doctor only"
+            echo "Tier 2 — pubspec.yaml found, no lock file: flutter doctor only"
           else
             echo "tier=1" >> "$GITHUB_OUTPUT"
-            echo "Tier 1 — no pubspec.yaml: all Flutter checks skipped"
-            echo "  Run 'flutter create .' inside the container to initialise."
+            echo "Tier 1 — no pubspec.yaml: all Flutter checks are skipped"
+            echo "Run 'flutter create .' inside the container to initialise the project."
           fi
 
-  # ── Format ───────────────────────────────────────────────────────────────────
+  # ── Repository hygiene ───────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends shellcheck
+
+      # Git hooks are POSIX sh without a shebang (Husky 9), so they are checked
+      # as sh; everything under scripts/ is bash.
+      - name: ShellCheck (scripts and git hooks)
+        run: |
+          git ls-files -z 'scripts/*.sh' | xargs -0 --no-run-if-empty shellcheck
+          git ls-files -z '.husky/*' | xargs -0 --no-run-if-empty shellcheck --shell=sh
+
+      - name: Actionlint (workflows)
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+
+      # Security linter for the workflows themselves (script injection, unpinned
+      # actions, excessive permissions, credential persistence). Findings are
+      # printed as annotations; nothing is uploaded to code scanning, so no
+      # security-events permission is needed.
+      - name: Zizmor (workflow security)
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          version: 1.30.1
+          advanced-security: false
+          annotations: true
+
+  # Mirrors the rules in .editorconfig that tooling can verify reliably.
   format:
     name: Format
-    runs-on: ubuntu-latest
-    needs: detect
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check line endings, trailing whitespace and final newline
+        run: |
+          status=0
+
+          crlf=$(git ls-files --eol | awk '$1 == "i/crlf" || $1 == "i/mixed" { print $NF }')
+          if [ -n "$crlf" ]; then
+            echo "::error::CRLF line endings found (LF required):"; echo "$crlf"; status=1
+          fi
+
+          trailing=$(git grep -nIE '[[:space:]]+$' -- . ':!*.md' || true)
+          if [ -n "$trailing" ]; then
+            echo "::error::Trailing whitespace found:"; echo "$trailing"; status=1
+          fi
+
+          missing=""
+          while IFS= read -r -d '' file; do
+            if [ -s "$file" ] && grep -Iq . "$file" && [ "$(tail -c1 "$file" | wc -l)" -eq 0 ]; then
+              missing="$missing$file"$'\n'
+            fi
+          done < <(git ls-files -z)
+          if [ -n "$missing" ]; then
+            echo "::error::Missing final newline:"; printf '%s' "$missing"; status=1
+          fi
+
+          exit "$status"
+
+  # Every commit of a pull request must follow Conventional Commits. The Husky
+  # commit-msg hook enforces the same rule locally; this catches commits made
+  # without the hooks (web editor, other machines).
+  commits:
+    name: Commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
-    permissions:
-      contents: read
-    if: >
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Install the commit linter
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Lint the pull request's commit messages
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: pnpm exec commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+
+  # Audits the Node tooling (Husky, commitlint) that every project inherits. The
+  # lock file is the only input, so nothing is installed or executed. High and
+  # critical advisories fail the check; lower severities are left to Dependabot.
+  node-audit:
+    name: Node dependency audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Audit pnpm-lock.yaml
+        run: |
+          corepack enable
+          pnpm audit --audit-level high
+
+  # The template itself must stay a blank canvas: Flutter source and the native
+  # folders are created per project by `flutter create`. Runs only in the
+  # template repository, never in a project generated from it.
+  template-guard:
+    name: Template guard
+    if: github.event.repository.is_template
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Keep the template a blank canvas
+        run: |
+          status=0
+          for path in pubspec.yaml pubspec.lock lib android ios web test; do
+            if [ -e "$path" ]; then
+              echo "::error::'$path' must not exist in the template (flutter create makes it per project)."
+              status=1
+            fi
+          done
+          exit "$status"
+
+      # The compose entrypoint and the Husky hooks are executed directly, so on
+      # Linux and macOS they must carry the executable bit in Git.
+      - name: Scripts and hooks are executable in Git
+        run: |
+          not_executable=$(git ls-files -s scripts .husky .github/scripts | awk '$1 != "100755" { print $4 }')
+          if [ -n "$not_executable" ]; then
+            echo "::error::Not executable in Git (run: git update-index --chmod=+x <file>):"
+            echo "$not_executable"
+            exit 1
+          fi
+
+  # ── Flutter project checks (Tier 3 unless noted) ─────────────────────────
+  flutter-format:
+    name: Flutter format
+    needs: detect
+    if: >-
       needs.detect.outputs.tier == '3' &&
       (github.event.pull_request.draft == false || github.event_name != 'pull_request')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
+
       - run: dart format --set-exit-if-changed .
 
-  # ── Analyze ──────────────────────────────────────────────────────────────────
-  analyze:
-    name: Analyze
-    runs-on: ubuntu-latest
+  flutter-analyze:
+    name: Flutter analyze
     needs: detect
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    if: >
+    if: >-
       needs.detect.outputs.tier == '3' &&
       (github.event.pull_request.draft == false || github.event_name != 'pull_request')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
+
       - run: flutter pub get
       - run: flutter analyze --fatal-infos
 
-  # ── Test ─────────────────────────────────────────────────────────────────────
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    needs: [detect, format, analyze]
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    if: >
+  flutter-test:
+    name: Flutter test
+    needs: [detect, flutter-format, flutter-analyze]
+    if: >-
       always() &&
       needs.detect.outputs.tier == '3' &&
-      needs.format.result == 'success' &&
-      needs.analyze.result == 'success'
+      needs.flutter-format.result == 'success' &&
+      needs.flutter-analyze.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
+
       - run: flutter pub get
+
       - name: Run tests with coverage
         run: |
           if [[ -d "test" ]]; then
@@ -121,108 +332,88 @@ jobs:
             echo "No test/ directory — skipping flutter test"
             echo "Add tests under test/ when you are ready."
           fi
+
       - name: Upload coverage report
-        uses: actions/upload-artifact@v7
         if: hashFiles('coverage/lcov.info') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-report
           path: coverage/lcov.info
           retention-days: 7
 
-  # ── Security audit ───────────────────────────────────────────────────────────
-  audit:
-    name: Security audit
-    runs-on: ubuntu-latest
+  # Scans every resolved package in pubspec.lock against the OSV database.
+  # Dart has no built-in audit command, and OSV-Scanner is maintained by Google.
+  flutter-audit:
+    name: Dependency audit
     needs: detect
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    if: >
+    if: >-
       needs.detect.outputs.tier == '3' &&
       (github.event.pull_request.draft == false || github.event_name != 'pull_request')
-    steps:
-      - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - name: Security audit
-        run: |
-          dart pub global activate dart_audit 0.1.0
-          dart_audit
-
-  # ── Flutter doctor ───────────────────────────────────────────────────────────
-  doctor:
-    name: Flutter doctor
-    runs-on: ubuntu-latest
-    needs: detect
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
-    permissions:
-      contents: read
-    if: needs.detect.outputs.tier == '2' || needs.detect.outputs.tier == '3'
     steps:
-      - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan pubspec.lock for known vulnerabilities
+        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+        with:
+          scan-args: |-
+            --lockfile=pubspec.lock
+
+  flutter-doctor:
+    name: Flutter doctor
+    needs: detect
+    if: needs.detect.outputs.tier == '2' || needs.detect.outputs.tier == '3'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
+
       - run: flutter doctor -v
 
-  # ── CI gate ──────────────────────────────────────────────────────────────────
-  # Single required status check for branch protection.
-  # Passes automatically on tier 1 (fresh template — nothing to check yet).
+  # The one check to require in branch protection. It always runs and fails if
+  # any job above failed or was cancelled; jobs skipped by design (a Flutter job
+  # on a fresh template, the template guard in a generated project) count as
+  # passed.
   ci-passed:
     name: CI passed
-    runs-on: ubuntu-latest
-    needs: [detect, format, analyze, test, audit, doctor]
-    timeout-minutes: 5
-    permissions:
-      contents: read
     if: always()
+    needs:
+      - verify-source-branch
+      - detect
+      - lint
+      - format
+      - commits
+      - node-audit
+      - template-guard
+      - flutter-format
+      - flutter-analyze
+      - flutter-test
+      - flutter-audit
+      - flutter-doctor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
     steps:
       - name: Evaluate results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          echo "──────────────────────────────────────────"
-          echo "  CI gate — evaluating job results"
-          echo "──────────────────────────────────────────"
-
-          TIER="${{ needs.detect.outputs.tier }}"
-
-          if [[ "$TIER" == "1" ]]; then
-            echo "Tier 1 — fresh template, no pubspec.yaml"
-            echo "All Flutter checks skipped — CI passes automatically."
-            echo "Run 'flutter create .' to initialise your project."
-            exit 0
-          fi
-
-          echo "Tier $TIER detected — evaluating check results"
-          echo ""
-
-          FAILED=0
-
-          check_job() {
-            local name="$1"
-            local result="$2"
-            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
-              echo "FAIL  $name: $result"
-              FAILED=1
-            elif [[ "$result" == "skipped" ]]; then
-              echo "SKIP  $name: skipped"
-            else
-              echo "PASS  $name: $result"
-            fi
-          }
-
-          check_job "format"  "${{ needs.format.result }}"
-          check_job "analyze" "${{ needs.analyze.result }}"
-          check_job "test"    "${{ needs.test.result }}"
-          check_job "audit"   "${{ needs.audit.result }}"
-          check_job "doctor"  "${{ needs.doctor.result }}"
-
-          echo ""
-          if [[ "$FAILED" == "1" ]]; then
-            echo "CI gate FAILED — see failed jobs above"
-            exit 1
-          fi
-          echo "CI gate PASSED"
+          echo "Job results: $RESULTS"
+          for result in $RESULTS; do
+            case "$result" in
+              success|skipped) ;;
+              *) echo "::error::At least one required job did not succeed."; exit 1 ;;
+            esac
+          done
