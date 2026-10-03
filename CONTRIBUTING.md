@@ -1,22 +1,31 @@
 # Contributing
 
-Thanks for improving `flutter-template`. This repo provides the developer
-toolchain and CI/CD scaffolding that every new Flutter project starts from —
-changes here affect every project generated from this template.
+Thanks for improving `flutter-template`. This repository provides the developer toolchain and CI/CD scaffolding that every new Flutter project starts from, so a change here reaches every project generated from it. Changes are kept small and verified.
 
-## Branching model
+## Scope
 
-- `main` — stable, always usable as a template. Protected.
-- `develop` — integration branch. Dependabot PRs land here.
-- `feature/**` — day-to-day work, opened as PRs into `develop`.
+In scope: the dev container and compose setup, the git hooks, the CI and build workflows, repository governance (rulesets, labels, templates, Dependabot) and the documentation.
 
-Open your PR against `develop` unless this is an approved release merge
-into `main`.
+Out of scope:
+
+- Flutter application code, `lib/`, `pubspec.yaml`, `pubspec.lock`, `android/`, `ios/`, `web/` or `test/`. This template must stay a zero-code starting point; `flutter create` makes them per project.
+- Anything that belongs in the dev image (SDKs, system packages, shell aliases, the prompt). That is [`flutter-devcontainer`](https://github.com/alihaidar0/flutter-devcontainer).
+- Deployment workflows and secrets. Targets differ per project.
+
+## Branching and pull requests
+
+- `main` is stable and always usable as a template; `develop` is the integration branch and where Dependabot pull requests land.
+- Work on a topic branch (`feat/…`, `fix/…`, `docs/…`, `ci/…`, `chore/…`, `deps/…`) and open the pull request against **`develop`**.
+- Only a `develop` → `main` pull request may target `main`.
+- Merge with a **merge commit**. Squash and rebase merging are disabled.
+- Fill in the [pull request template](.github/PULL_REQUEST_TEMPLATE.md) and set labels (they drive the release notes).
+- The **CI passed** check must be green before merging.
+
+The full branch model, repository settings and rulesets are described in [`docs/github-setup.md`](docs/github-setup.md).
 
 ## Before you start
 
-Husky hooks activate automatically when the dev container is created
-(`postCreateCommand` runs `pnpm install`). To re-run manually:
+Husky hooks activate when the dev container is created (`postCreateCommand` runs `pnpm install`). To register them again:
 
 ```bash
 pnpm install
@@ -24,44 +33,52 @@ pnpm install
 
 ## Commit messages
 
-Enforced by [Conventional Commits](https://www.conventionalcommits.org/) via
-commitlint + Husky's `commit-msg` hook:
+[Conventional Commits](https://www.conventionalcommits.org/), enforced locally by commitlint and Husky's `commit-msg` hook and again in CI for every commit of a pull request:
 
-```
-feat(ci): add coverage upload to test job
+```text
+feat(ci): add coverage upload to the test job
 fix(devcontainer): correct flutterSdkPath
 docs(readme): clarify emulator setup
-chore(deps): bump commitlint config
+build(deps): bump the commitlint group
 ```
 
-Valid types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert` `wip`
+Valid types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert` `wip`. The type is lower-case, the subject is not sentence-, start-, Pascal- or upper-case and has no trailing period. A change that forces already-generated projects to adapt is breaking: `feat!:` with a `BREAKING CHANGE:` footer.
 
 ## Making changes
 
-- **Dev container / VS Code config** — edit `.devcontainer/devcontainer.json`
-  or `.vscode/*`. Test with **Dev Containers: Rebuild Container**.
-- **CI/CD workflows** — edit `.github/workflows/*.yml`. Verify the
-  tier-detection logic still passes on both a fresh checkout (Tier 1 — no
-  `pubspec.yaml`) and a locally-initialised project (Tier 3).
-- **Git hooks** — edit `.husky/*`. These must never block a commit or push
-  when `pubspec.yaml` is absent (see the Tier-1 guard in `.husky/pre-commit`).
-- **Do not** add Flutter application code, a `lib/` folder, or a
-  `pubspec.yaml` — this template must stay a zero-code starting point.
-- **Do not** casually bump a pinned GitHub Action, Docker image tag, or SDK
-  version — pinned versions are intentional. Open a dedicated PR with the
-  version bump named in the title.
+- **Dev container, compose, VS Code config** — edit `.devcontainer/devcontainer.json`, `docker-compose.yml` or `.vscode/*`, and test with **Dev Containers: Rebuild Container**. Anything the image already provides (user, paths, aliases, pnpm, Chrome) is not repeated here.
+- **Workflows** — edit `.github/workflows/*.yml`. The template must pass on a fresh checkout (Tier 1, no `pubspec.yaml`) and on an initialised project (Tier 3); every new job needs a tier condition and a place in the `ci-passed` job's `needs:`.
+- **Git hooks** — edit `.husky/*`. They must never block a commit or push when `pubspec.yaml` is absent (see the Tier-1 guard in `.husky/pre-commit`).
+- **Pinned versions** — GitHub Actions are pinned to a full commit SHA with a `# vX.Y.Z` comment, and `packageManager` (pnpm) equals the version the image pre-caches. Verify a version on its official channel before changing it, and name the bump in the pull request title.
+- **Node stays on 24**, matching the image. `engines.node` and the Dependabot ignore rule must agree.
+- **Shell scripts and hooks use LF line endings** and are executable in Git; a CRLF script fails inside the container.
+- **Workflow hygiene** — least-privilege `permissions:`, `persist-credentials: false` on checkout, `timeout-minutes` on every job, and `${{ }}` values reach `run:` scripts through `env:`, never inline.
+- **Keep the documentation true** — update `README.md` and `CHANGELOG.md` in the same pull request.
 
-## Pull requests
+## Checking your change locally
 
-- Fill in [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md).
-- `ci.yml` must pass — it degrades gracefully on a template checkout, so it
-  should never fail for reasons unrelated to your change.
-- One approving review from a CODEOWNER is required before merge.
+```bash
+bash -n scripts/*.sh
+docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable scripts/*.sh
+docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable --shell=sh .husky/commit-msg .husky/pre-commit .husky/pre-push
+docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -no-color
+docker run --rm -v "$PWD:/repo:ro" -w /repo ghcr.io/zizmorcore/zizmor:latest --no-progress --offline .
+docker compose config --quiet
+echo "chore: example" | pnpm exec commitlint     # must pass
+echo "bad message" | pnpm exec commitlint        # must fail
+git ls-files -s scripts .husky .github/scripts   # every mode must be 100755
+```
 
-## Bugs / feature requests
+CI runs the same checks and more.
 
-Use the issue templates under **New Issue**.
+## Bugs and feature requests
+
+Use the issue templates under **New issue**. Problems with the base Docker image itself belong in [`flutter-devcontainer`](https://github.com/alihaidar0/flutter-devcontainer/issues).
 
 ## Security issues
 
-Do not open a public issue — see [`SECURITY.md`](SECURITY.md).
+Do not open a public issue for a vulnerability. See [`SECURITY.md`](SECURITY.md).
+
+## Conduct
+
+Participation is governed by the [Code of Conduct](.github/CODE_OF_CONDUCT.md).

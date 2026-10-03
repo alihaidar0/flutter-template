@@ -1,6 +1,6 @@
-while read LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
-  BRANCH=$(echo "$REMOTE_REF" | sed 's|refs/heads/||')
-  if [ "$BRANCH" = "main" ]; then
+while read -r _ _ remote_ref _; do
+  branch="${remote_ref#refs/heads/}"
+  if [ "$branch" = "main" ]; then
     echo ""
     echo "╔══════════════════════════════════════════════════╗"
     echo "║  Direct push to 'main' is blocked               ║"

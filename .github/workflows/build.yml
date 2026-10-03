@@ -1,8 +1,17 @@
+# .github/workflows/build.yml
+#
+# Release builds (Android APK, Android App Bundle, Web) when a promotion lands on
+# main, or on demand. Nothing is signed or deployed: signing keys and release
+# targets (Play Store, Firebase, a web host) are added per project.
+#
+# Copied into every generated project, so it skips cleanly until the project
+# has a pubspec.yaml and a pubspec.lock.
 name: Build
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - "lib/**"
       - "pubspec.yaml"
@@ -17,19 +26,28 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
-  # ── Guard: skip entirely if project not yet initialised ───────────────────
+  # ── Guard: skip entirely if the project is not initialised yet ───────────
   detect:
     name: Detect project
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
-    permissions:
-      contents: read
     outputs:
       ready: ${{ steps.check.outputs.ready }}
     steps:
-      - uses: actions/checkout@v7
-      - name: Check for pubspec.lock
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            pubspec.yaml
+            pubspec.lock
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Check for pubspec.yaml and pubspec.lock
         id: check
         run: |
           if [[ -f "pubspec.yaml" && -f "pubspec.lock" ]]; then
@@ -40,77 +58,98 @@ jobs:
             echo "No pubspec.yaml / pubspec.lock — skipping all builds"
           fi
 
-  # ── Android APK ──────────────────────────────────────────────────────────────
+  # ── Android APK ──────────────────────────────────────────────────────────
   build-apk:
     name: Android APK
-    runs-on: ubuntu-latest
     needs: detect
-    timeout-minutes: 20
-    permissions:
-      contents: read
     if: needs.detect.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
+
       - run: flutter pub get
+
       - name: Build release APK
         run: flutter build apk --release
+
       - name: Upload APK
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: android-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
           retention-days: 14
 
-  # ── Android AAB ──────────────────────────────────────────────────────────────
+  # ── Android App Bundle ───────────────────────────────────────────────────
   build-aab:
     name: Android AAB
-    runs-on: ubuntu-latest
     needs: detect
-    timeout-minutes: 20
-    permissions:
-      contents: read
     if: needs.detect.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
+
       - run: flutter pub get
+
       - name: Build release AAB
         run: flutter build appbundle --release
+
       - name: Upload AAB
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: android-aab
           path: build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
           retention-days: 14
 
-  # ── Web ───────────────────────────────────────────────────────────────────────
+  # ── Web ──────────────────────────────────────────────────────────────────
   build-web:
     name: Web
-    runs-on: ubuntu-latest
     needs: detect
-    timeout-minutes: 15
-    permissions:
-      contents: read
     if: needs.detect.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           cache: true
+
       - run: flutter pub get
+
       - name: Build web release
         run: flutter build web --release
+
       - name: Upload web build
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: web-build
           path: build/web/
+          if-no-files-found: error
           retention-days: 14

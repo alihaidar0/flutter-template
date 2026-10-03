@@ -20,16 +20,61 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 - `.editorconfig` for consistent formatting across editors.
 - `.env.example` — starter environment variable template.
-- `.vscode/extensions.json`, `settings.json`, `launch.json` — host-side
-  editor defaults and forward-ready Flutter debug configurations.
+- `.vscode/extensions.json`, `settings.json`, `launch.json` — shared editor
+  settings and forward-ready Flutter debug configurations.
 - `LICENSE` (MIT), `SECURITY.md`, `CONTRIBUTING.md`.
 - `.github/PULL_REQUEST_TEMPLATE.md` and `.github/ISSUE_TEMPLATE/` (bug
   report, feature request, contact links to `flutter-devcontainer`).
-- `repomix.config.json` — AI-context snapshot configuration.
+- `repomix.config.json` — Repomix configuration for a single-file
+  repository snapshot.
 - `security` label.
+- Importable rulesets for `main`, `develop` and `v*` tags
+  (`.github/rulesets/`) and `docs/github-setup.md`, which lists every GitHub
+  setting and the bootstrap order for the template and for each project
+  created from it.
+- `ci.yml` jobs: **Verify source branch** (only `develop` may target
+  `main`), **Lint** (ShellCheck, actionlint), **Format**, **Commit messages**
+  (commitlint over every PR commit), **Template guard** (template repository
+  only) and **Dependency audit** (OSV-Scanner on `pubspec.lock`).
+- `release.yml` (calendar-versioned GitHub Releases) and `image-contract.yml`
+  (weekly template ↔ `flutter-devcontainer` check), both template repository
+  only, plus `.github/release.yml` and the `ci` and `skip-changelog` labels.
+- `.github/CODE_OF_CONDUCT.md` (Contributor Covenant 2.1) and `pnpm-lock.yaml`.
+- `ci.yml` jobs **Node dependency audit** (`pnpm audit`, high and critical
+  fail) and a zizmor workflow-security step in **Lint**; the template guard
+  also checks the executable bit of `.github/scripts/`.
 
 ### Changed
 
+- The rulesets bind the required **CI passed** check to the GitHub Actions app
+  (`integration_id`), `build.yml` fails when an expected artifact is missing,
+  and the issue forms and PR template gained a pre-submission checklist,
+  reproduction steps and a breaking-change section.
+- Every workflow now pins all actions to full commit SHAs, uses
+  `persist-credentials: false`, explicit `ubuntu-24.04` runners and
+  `env:`-based expression handling; `ci.yml` runs on pull requests (and on
+  demand) instead of on every push, and its aggregate **CI passed** job
+  evaluates results through `env:`.
+- Flutter CI job names are now prefixed `Flutter …` and the dependency audit
+  uses OSV-Scanner instead of the third-party `dart_audit` (Dart has no
+  `pub audit` command); the README no longer documents a `daudit` alias the
+  image does not provide.
+- VS Code configuration is deduplicated: the dev container installs the
+  extensions (adding ShellCheck and GitHub Pull Requests, dropping cosmetic and
+  project-specific ones), `.vscode/extensions.json` only recommends Dev
+  Containers, and `.vscode/settings.json` holds the shared editor settings once
+  instead of repeating `.editorconfig` and `devcontainer.json`. Removed
+  `dart.lineLength` (it made the editor format at 120 while `dart format`,
+  the pre-commit hook and CI use the width from `analysis_options.yaml`),
+  `git.enableSmartCommit` and the Chrome launch configuration, which a
+  container cannot display.
+- `packageManager` is now `pnpm@11.28.2`, the version the dev image
+  pre-caches, and `engines.pnpm` is `^11.0.0`.
+- Dependabot gained a 7-day cooldown; `.github/CODEOWNERS`, labels, the
+  pull-request template and the issue forms were extended; `CONTRIBUTING.md`
+  and `SECURITY.md` describe the current rules and supply-chain controls.
+- `.husky/pre-push` no longer trips ShellCheck (`read -r`, no unused
+  variables); behaviour is unchanged.
 - Dependabot (`github-actions`, `pub`, `npm`) now opens PRs against
   `develop` instead of `main`, matching `flutter-devcontainer`.
 - `ci.yml` / `build.yml` / `labels.yml` now declare explicit least-privilege
