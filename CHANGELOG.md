@@ -8,13 +8,12 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 > **⚠️ Revisit before Node 26 LTS:** Node's TSC voted to stop distributing
 > Corepack from Node 25 onward; Node 24 still bundles it as an experimental
-> feature. `flutter-devcontainer` moves to Node 26 LTS around Oct/Nov 2026,
-> at which point `sudo corepack enable` in this template's
-> `devcontainer.json` `postCreateCommand` will fail
-> (`corepack: command not found`). Before that migration, either add an
-> explicit `npm install -g corepack` step to the base image's Dockerfile,
-> or drop Corepack in favor of `pnpm`'s own self-management and update
-> `postCreateCommand` accordingly.
+> feature. `flutter-devcontainer` moves to Node 26 LTS around Oct/Nov 2026.
+> Corepack and pnpm are prepared in the image, so this template only runs
+> `pnpm install`; the migration must keep `pnpm` on the `developer` user's
+> `PATH` at the version pinned by `packageManager` (for example by installing
+> pnpm in the image without Corepack) and update the `image-contract.yml`
+> check if the way pnpm is provided changes.
 
 ### Added
 
@@ -68,11 +67,92 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   the pre-commit hook and CI use the width from `analysis_options.yaml`),
   `git.enableSmartCommit` and the Chrome launch configuration, which a
   container cannot display.
+- The README is now the complete guide: creating an app from the template to
+  the first run on an emulator and in a browser, what to change in the new app,
+  GitHub settings and rulesets, branches, git inside and outside the container,
+  the hooks, CI/CD, releases and troubleshooting, with 12 mermaid diagrams.
+  `welcome.sh` re-installs missing Husky hooks on every start so the first
+  commit and push of a new project are always checked, and
+  `check-image-contract.sh` accepts the alias table under a level-2 or
+  level-3 heading.
+- `docs/` was listed in `.gitignore`, so `docs/github-setup.md` (linked from the
+  README and CONTRIBUTING) never reached GitHub or generated projects; it is
+  tracked now, together with the new `docs/android-signing.md`.
+- `node_modules` moved to a named volume (`node-modules`): on a Windows bind
+  mount commitlint took 9.2 s per commit and now takes 0.55 s; `entrypoint.dev.sh`
+  fixes the ownership of the new mount point once.
+- Release automation without a bot: `release.yml` gained an `app-release` job
+  that publishes a GitHub Release with generated, label-grouped notes for the
+  version in a project's `pubspec.yaml` (once per version; the Releases page is
+  the changelog, so a project deletes `CHANGELOG.md`). The template keeps its
+  calendar-versioned release. release-please and git-cliff were not adopted:
+  they need Actions to open pull requests (disabled in `docs/github-setup.md`),
+  their pull requests would not trigger **CI passed** with `GITHUB_TOKEN`, and
+  they would conflict with the rule that only `develop` may target `main`.
+- `docs/android-signing.md` documents Android release signing (keystore in a
+  `production` environment limited to `main`, a signing job for pushes to
+  `main`, a Gradle snippet that falls back to the debug key), and `build.yml`
+  gained an opt-in unsigned iOS compile check (repository variable
+  `BUILD_IOS=true`, `macos-15`).
+- `build.yml` builds for the two environments of the branching model, so a
+  generated project needs no workflow edits: pull requests into `develop`
+  produce staging artifacts, pull requests into `main` and merges to `main`
+  produce production artifacts (APK, AAB and web, `--dart-define=APP_ENV=…`,
+  optional `env/<environment>.json`, 14 or 30 days retention), draft pull
+  requests are skipped, and the three jobs became one matrix job. `ci.yml` and
+  `build.yml` run `flutter pub get --enforce-lockfile`, and `ci.yml` warns
+  until the dev image and the Flutter version are pinned.
+  `scripts/pin-image.sh` now also writes `environment: flutter:` to
+  `pubspec.yaml` and refreshes `pubspec.lock`.
+- Running on the host is automatic: `scripts/connect-emulator.sh` connects the
+  container's adb to an emulator on the host (at container start and, through
+  the new `.vscode/tasks.json` task, before every Android launch, waiting while
+  the emulator boots); `launch.json` now offers **Flutter (Android — host
+  emulator)**, **Flutter (Web — host browser)** and the compound
+  **Flutter (Emulator + Browser)**. The README's host section replaces the
+  firewall click-path with one PowerShell command.
+- Git works from the container and from the host: the Husky hooks that need the
+  toolchain (`commit-msg`, `pre-commit`, the analysis in `pre-push`) skip with a
+  notice outside the dev container, and CI enforces the same checks.
+- Per-project version pinning: `scripts/pin-image.sh` freezes the `image:` line
+  of `docker-compose.yml` to an exact `<tag>@sha256:<digest>`; `ci.yml` and
+  `build.yml` install the Flutter version pinned under `environment: flutter:`
+  in `pubspec.yaml` (newest stable when there is no pin); a commented-out
+  Dependabot `docker-compose` block turns image updates into reviewed pull
+  requests. The template itself keeps following `:latest`.
+- Git identity and SSH keys are no longer bind-mounted: VS Code copies the Git
+  identity and forwards the host ssh-agent (README → Git and SSH), and
+  `welcome.sh` maps a host-only SSH alias in the `origin` URL to `github.com`.
+  `entrypoint.dev.sh` shrinks to the Husky permission fix.
+- `.husky/pre-commit` checks only the staged Dart files with `dart format`;
+  `flutter analyze` moved to `.husky/pre-push`, which still blocks `main`.
+- Removed `.dockerignore` (the template builds no image), the `frunc` alias
+  documentation (a container cannot open Chrome), the duplicated
+  Dart/Flutter extensions, `dart.flutterSdkPath` and `remoteUser` from
+  `devcontainer.json` (the image's `devcontainer.metadata` label provides
+  them), and the `DOCKERHUB_USERNAME` variable from the image reference.
+- The dev environment relies on the current `flutter-devcontainer` image
+  instead of repeating what it provides: `postCreateCommand` is just
+  `pnpm install` (Corepack and pnpm are prepared in the image), and the
+  `safe.directory` setting, the Gradle wrapper sync in `welcome.sh` (the
+  image has no standalone Gradle) and the named-volume ownership loop in
+  `entrypoint.dev.sh` are gone. **Requires the `flutter-devcontainer` image
+  published after its "harden the image and publish pipeline" release.**
+- `docker-compose.yml` no longer fixes `name:` or `container_name:` (projects
+  created from the template no longer share one Compose project, volumes and
+  container name), drops the Android SDK volume (the SDK ships in the image
+  and a volume hid image updates), the custom network, `restart`, `command`,
+  `:cached` and the duplicate `8080` port mapping (VS Code forwards it), and
+  adds `init: true`. `GIT_SSH_COMMAND` is set once, in compose.
+  `devcontainer.json` gained `hostRequirements` for Codespaces. After pulling
+  a newer image run `docker compose down -v` (see README).
 - `packageManager` is now `pnpm@11.28.2`, the version the dev image
   pre-caches, and `engines.pnpm` is `^11.0.0`.
 - Dependabot gained a 7-day cooldown; `.github/CODEOWNERS`, labels, the
   pull-request template and the issue forms were extended; `CONTRIBUTING.md`
   and `SECURITY.md` describe the current rules and supply-chain controls.
+- `.husky/commit-msg` runs `pnpm exec commitlint` instead of `npx`, matching
+  the package manager the project uses.
 - `.husky/pre-push` no longer trips ShellCheck (`read -r`, no unused
   variables); behaviour is unchanged.
 - Dependabot (`github-actions`, `pub`, `npm`) now opens PRs against
@@ -83,14 +163,6 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 - `.gitignore` — `.vscode/settings.json`, `extensions.json`, and
   `launch.json` are now tracked as shared team defaults; only
   `.vscode/*.local.json` is ignored.
-- `devcontainer.json` `postCreateCommand` now runs `sudo corepack enable`
-  before `pnpm install`, since Corepack's shim lives in a root-owned path.
-  This is a safety net for images built before `flutter-devcontainer`
-  started activating Corepack/pnpm at image build time. Dropped the
-  earlier `corepack prepare pnpm@latest --activate` step — it silently
-  ignored the `packageManager` field already pinned in `package.json`;
-  `corepack enable` + `pnpm install` now lets Corepack auto-download and
-  enforce that pinned version instead of always fetching the newest pnpm.
 - `scripts/entrypoint.dev.sh` no longer aborts the container if it can't
   fix SSH/Husky permissions (e.g. root-owned bind mounts from Windows
   Docker Desktop). It now retries via non-interactive `sudo -n` and, if
