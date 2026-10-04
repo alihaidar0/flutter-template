@@ -45,6 +45,14 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Changed
 
+- **Bumped `packageManager` from `pnpm@11.28.2` to `pnpm@12.9.1`** and
+  `engines.pnpm` to `^12.0.0`. This is a **major** version bump, made together
+  with `flutter-devcontainer` (which pre-caches the same version). The
+  existing lockfile content is unchanged and installs with
+  `--frozen-lockfile`; pnpm 12 additionally records the package manager
+  itself in a leading section of `pnpm-lock.yaml`. Projects already created
+  from the template keep their pinned image and stay on pnpm 11 until they
+  move to the new image.
 - The rulesets bind the required **CI passed** check to the GitHub Actions app
   (`integration_id`), `build.yml` fails when an expected artifact is missing,
   and the issue forms and PR template gained a pre-submission checklist,
