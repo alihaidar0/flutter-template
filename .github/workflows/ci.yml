@@ -59,6 +59,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       tier: ${{ steps.check.outputs.tier }}
+      flutter_version: ${{ steps.flutter-version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -66,6 +67,7 @@ jobs:
           sparse-checkout: |
             pubspec.yaml
             pubspec.lock
+            docker-compose.yml
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -82,6 +84,39 @@ jobs:
             echo "tier=1" >> "$GITHUB_OUTPUT"
             echo "Tier 1 — no pubspec.yaml: all Flutter checks are skipped"
             echo "Run 'flutter create .' inside the container to initialise the project."
+          fi
+
+      # A project pins its Flutter version in pubspec.yaml (environment: flutter:
+      # 3.x.y), so CI keeps building with it. Without a pin, the newest stable
+      # is used. The value only reaches `with:`, never a shell.
+      - name: Read the pinned Flutter version
+        id: flutter-version
+        run: |
+          version=""
+          if [[ -f "pubspec.yaml" ]]; then
+            version="$(awk '
+              /^environment:/ { in_env = 1; next }
+              in_env && /^[^[:space:]#]/ { in_env = 0 }
+              in_env && /^[[:space:]]+flutter:/ {
+                sub(/^[[:space:]]+flutter:[[:space:]]*/, ""); sub(/[[:space:]]*#.*/, ""); gsub(/["'"'"'[:space:]]/, ""); print; exit
+              }' pubspec.yaml)"
+          fi
+          if [[ "$version" =~ ^[0-9]+(\.[0-9x]+){0,2}$ ]]; then
+            echo "Flutter pinned to $version in pubspec.yaml"
+          else
+            version=""
+            echo "No exact Flutter pin in pubspec.yaml - using the latest stable"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # Nudge (never fail) when a project has not frozen its toolchain yet.
+          if [[ -f "pubspec.yaml" ]]; then
+            if [[ -z "$version" ]]; then
+              echo "::warning title=Flutter is not pinned::Add 'flutter: X.Y.Z' under environment: in pubspec.yaml (scripts/pin-image.sh does it) so CI keeps using that version."
+            fi
+            if [[ -f "docker-compose.yml" ]] && ! grep -Eq '^[[:space:]]*image:.*@sha256:' docker-compose.yml; then
+              echo "::warning title=Dev image is not pinned::Run scripts/pin-image.sh to freeze the dev image in docker-compose.yml."
+            fi
           fi
 
   # ── Repository hygiene ───────────────────────────────────────────────────
@@ -273,6 +308,7 @@ jobs:
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
+          flutter-version: ${{ needs.detect.outputs.flutter_version }}
           cache: true
 
       - run: dart format --set-exit-if-changed .
@@ -295,9 +331,12 @@ jobs:
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
+          flutter-version: ${{ needs.detect.outputs.flutter_version }}
           cache: true
 
-      - run: flutter pub get
+      # Fails if pubspec.lock does not match pubspec.yaml, so CI never silently
+      # resolves different package versions than the ones committed.
+      - run: flutter pub get --enforce-lockfile
       - run: flutter analyze --fatal-infos
 
   flutter-test:
@@ -320,9 +359,12 @@ jobs:
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
+          flutter-version: ${{ needs.detect.outputs.flutter_version }}
           cache: true
 
-      - run: flutter pub get
+      # Fails if pubspec.lock does not match pubspec.yaml, so CI never silently
+      # resolves different package versions than the ones committed.
+      - run: flutter pub get --enforce-lockfile
 
       - name: Run tests with coverage
         run: |
@@ -379,6 +421,7 @@ jobs:
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
+          flutter-version: ${{ needs.detect.outputs.flutter_version }}
           cache: true
 
       - run: flutter doctor -v

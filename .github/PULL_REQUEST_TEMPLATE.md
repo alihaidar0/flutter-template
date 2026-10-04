@@ -23,7 +23,8 @@
 
 - [ ] This PR targets `develop` (only the `develop` → `main` release PR targets `main`)
 - [ ] The **CI passed** check is green
-- [ ] `ci.yml` still passes on a fresh (Tier 1) checkout, so the template never fails before a project exists
+- [ ] `ci.yml` still passes, and `build.yml` still skips, on a fresh (Tier 1) checkout, so the template never fails before a project exists
+- [ ] A change to `build.yml` or `release.yml` still builds staging for pull requests into `develop` and production for `main`, and needs no edit in a generated project
 - [ ] No Flutter application code (`lib/`, `pubspec.yaml`, `android/`, `ios/`, `web/`) was introduced — this repo stays a zero-code template
 - [ ] New or updated GitHub Actions are pinned to a full commit SHA with a `# vX.Y.Z` comment, and any pinned version change is named in the PR title (see [CONTRIBUTING.md](../CONTRIBUTING.md))
 - [ ] Anything that must match the `flutter-devcontainer` image (pnpm and Node versions, aliases, image name) still does, or the image change is linked below
