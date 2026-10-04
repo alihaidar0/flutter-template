@@ -66,6 +66,34 @@ updates:
   #     - "flutter"
   #   open-pull-requests-limit: 5
 
+  # ── Dev image (docker-compose.yml) ──────────────────────────────────────
+  # DISABLED on flutter-template itself, which follows `:latest` on purpose (a
+  # tag without a version gives Dependabot nothing to bump).
+  #
+  # ACTION REQUIRED in a project created from this template: run
+  # scripts/pin-image.sh once so docker-compose.yml names an exact build
+  # (<tag>@sha256:<digest>), then uncomment the block below. The toolchain then
+  # only changes through a reviewed pull request, never silently.
+  #
+  # - package-ecosystem: "docker-compose"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+  #     day: "monday"
+  #     time: "09:00"
+  #     timezone: "UTC"
+  #   target-branch: "develop"
+  #   cooldown:
+  #     default-days: 7
+  #   assignees:
+  #     - "alihaidar0"
+  #   commit-message:
+  #     prefix: "build"
+  #     include: "scope"
+  #   labels:
+  #     - "dependencies"
+  #   open-pull-requests-limit: 5
+
   # ── npm (husky + commitlint only) ───────────────────────────────────────
   # Node is intentionally frozen at v24 LTS, matching NODE_VERSION in
   # flutter-devcontainer's Dockerfile.dev. All other npm packages are updated

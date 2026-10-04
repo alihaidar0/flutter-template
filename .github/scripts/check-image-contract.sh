@@ -32,8 +32,8 @@ if [ "${template_node}" != "${image_node}" ]; then
 fi
 
 # ── Image reference ──────────────────────────────────────────
-# The compose file builds the reference from a variable with a default
-# (${DOCKERHUB_USERNAME:-alihaidar199527}/flutter-devcontainer:<tag>).
+# The compose file pulls alihaidar199527/flutter-devcontainer:<tag>, optionally
+# followed by @sha256:<digest> once a project has run scripts/pin-image.sh.
 grep -E '^[[:space:]]*image:' docker-compose.yml | grep -q 'alihaidar199527.*/flutter-devcontainer' \
   || fail "docker-compose.yml does not pull alihaidar199527/flutter-devcontainer."
 
@@ -41,8 +41,8 @@ grep -E '^[[:space:]]*image:' docker-compose.yml | grep -q 'alihaidar199527.*/fl
 image_aliases="$(grep -oE '^alias [A-Za-z0-9_]+' <<< "${aliases_script}" | cut -d' ' -f2 | sort -u)"
 readme_aliases="$(
   awk '
-    /^## Shell Aliases/ { in_section = 1; next }
-    /^## /              { in_section = 0 }
+    /^#+ Shell Aliases/ { in_section = 1; next }
+    /^#+ /              { in_section = 0 }
     in_section && /^\| `/ {
       split($0, cols, "|")
       gsub(/[ `]/, "", cols[2])
