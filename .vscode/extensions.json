@@ -1,43 +1,8 @@
 {
   "recommendations": [
-    // ── Required: Dev Containers ─────────────────────────────────────────────
-    // Enables the "Reopen in Container" prompt when you open this folder.
-    "ms-vscode-remote.remote-containers",
-
-    // ── Flutter & Dart ───────────────────────────────────────────────────────
-    "dart-code.flutter",
-    "dart-code.dart-code",
-    "Nash.awesome-flutter-snippets",
-    "localizely.flutter-intl",
-    "pflannery.vscode-versionlens",
-
-    // ── Git ──────────────────────────────────────────────────────────────────
-    "eamodio.gitlens",
-    "mhutchie.git-graph",
-
-    // ── Docker ───────────────────────────────────────────────────────────────
-    "ms-azuretools.vscode-docker",
-
-    // ── CI/CD ───────────────────────────────────────────────────────────────
-    "github.vscode-github-actions",
-
-    // ── Utilities ────────────────────────────────────────────────────────────
-    "mikestead.dotenv",
-    "redhat.vscode-yaml",
-    "PKief.material-icon-theme",
-    "aaron-bond.better-comments",
-    "gruntfuggly.todo-tree",
-    "usernamehw.errorlens",
-    "streetsidesoftware.code-spell-checker",
-    "oderwat.indent-rainbow",
-    "EditorConfig.EditorConfig",
-    "davidanson.vscode-markdownlint",
-    "bierner.markdown-mermaid",
-    "0xTanzim.filetree-pro",
-
-    // ── AI ───────────────────────────────────────────────────────────────────
-    "GitHub.copilot",
-    "GitHub.copilot-chat",
-    "DorianMassoulier.repomix-runner"
+    // The only host-side requirement: it offers "Reopen in Container".
+    // Every other extension is installed inside the container from
+    // .devcontainer/devcontainer.json, so nothing is listed twice.
+    "ms-vscode-remote.remote-containers"
   ]
 }

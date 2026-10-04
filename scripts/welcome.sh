@@ -3,52 +3,44 @@ set -euo pipefail
 
 WORKSPACE=/workspace
 
-# Mark workspace as safe for git (avoids "dubious ownership" warnings).
-# System scope (not --global) because ~/.gitconfig is bind-mounted read-only
-# from the host (see docker-compose.yml) — writing to it fails with
-# "Device or resource busy". /etc/gitconfig has no such restriction.
-sudo git config --system --add safe.directory "$WORKSPACE" 2>/dev/null || true
-
 # Auto-create .env from .env.example on first run
 if [ ! -f "$WORKSPACE/.env" ] && [ -f "$WORKSPACE/.env.example" ]; then
   cp "$WORKSPACE/.env.example" "$WORKSPACE/.env"
 fi
 
-# ── Gradle wrapper version sync ─────────────────────────────────────────────
-# `flutter create` pins whatever Gradle version ships with the Flutter SDK's
-# own project template — unrelated to, and usually older than, the Gradle
-# version this image pre-caches at $GRADLE_HOME (currently $GRADLE_VERSION,
-# set in the Dockerfile). Left alone, every generated project ignores the
-# pre-cached copy and silently re-downloads its own Gradle distribution on
-# first build — several minutes wasted for something already sitting on disk.
-# Runs on every container start so it self-heals regardless of when
-# `flutter create` was run, with no manual step for the developer.
-sync_gradle_wrapper() {
-  local wrapper_props="$WORKSPACE/android/gradle/wrapper/gradle-wrapper.properties"
-  [ -f "$wrapper_props" ] || return 0
-  [ -n "${GRADLE_VERSION:-}" ] || return 0
+# ── SSH host alias ─────────────────────────────────────────────────────────
+# Keys come from your host's ssh-agent (forwarded by VS Code) and ~/.ssh is not
+# mounted, so a host-only alias in the remote URL (for example
+# git@github.com-work:owner/repo.git, defined in the host's ~/.ssh/config)
+# would not resolve here. Map such an alias to github.com inside the container.
+# Non-fatal: it is a convenience and must never block container start.
+remote_host="$(git -C "$WORKSPACE" remote get-url origin 2>/dev/null \
+  | sed -nE 's#^(ssh://)?git@([^:/]+)[:/].*#\2#p')" || true
+if [[ "$remote_host" == github.com-* ]] && ! grep -qsx "Host ${remote_host}" "$HOME/.ssh/config"; then
+  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+  printf 'Host %s\n  HostName github.com\n  User git\n' "$remote_host" >> "$HOME/.ssh/config" || true
+  chmod 600 "$HOME/.ssh/config" || true
+fi
 
-  local current_version
-  current_version=$(grep -oP 'gradle-\K[0-9]+\.[0-9]+(\.[0-9]+)?' "$wrapper_props" | head -1)
-
-  if [ -n "$current_version" ] && [ "$current_version" != "$GRADLE_VERSION" ]; then
-    sed -i -E "s/gradle-[0-9]+\.[0-9]+(\.[0-9]+)?-(bin|all)/gradle-${GRADLE_VERSION}-\2/" "$wrapper_props"
-    echo "  🔧  Synced Gradle wrapper: ${current_version} → ${GRADLE_VERSION} (matches image pre-cache, avoids re-download)"
-  fi
-}
-sync_gradle_wrapper
+# ── Git hooks ───────────────────────────────────────────────────────────────
+# postCreateCommand (`pnpm install`) registers the Husky hooks. Repeat it here
+# when they are missing (an interrupted first start, a recreated node_modules
+# volume), so the very first commit and push of a new project are already
+# checked. Non-fatal: it must never block container start.
+hooks_path="$(git -C "$WORKSPACE" config core.hooksPath 2>/dev/null || true)"
+if [[ "$hooks_path" != ".husky/_" || ! -x "$WORKSPACE/node_modules/.bin/commitlint" ]]; then
+  echo "  🪝  Installing the git hooks (pnpm install)..."
+  (cd "$WORKSPACE" && pnpm install --frozen-lockfile >/dev/null 2>&1) \
+    || echo "  ⚠️  Could not install the git hooks — run: pnpm install"
+fi
 
 # ── Auto-connect to host emulator ───────────────────────────────────────────
-# The container runs its own local adb server (see docker-compose.yml for why
-# this replaced the earlier remote-server relay). If an emulator is already
-# running on the Windows host and listening on the default port 5555, this
-# connects automatically so `adb devices` / `flutter run` "just work" without
-# a manual `adb connect` step every session. Silent and non-fatal if no
-# emulator is running yet, or if adb isn't reachable for any reason — this is
-# a convenience, not a requirement, and must never block container startup.
-if command -v adb >/dev/null 2>&1; then
-  timeout 3 adb connect host.docker.internal:5555 >/dev/null 2>&1 || true
-fi
+# If an emulator is already running on the host, connect to it now so
+# `adb devices` / `flutter run` work without a manual step. The VS Code launch
+# configurations run the same script again before every start, so an emulator
+# started later is picked up too. Silent and non-fatal: it is a convenience and
+# must never block container start.
+ADB_PORTS=5555 bash "$WORKSPACE/scripts/connect-emulator.sh" --quiet || true
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -63,7 +55,7 @@ if [ -f "$WORKSPACE/pubspec.yaml" ] && [ -f "$WORKSPACE/pubspec.lock" ]; then
   echo "  ✅  Flutter project detected: ${APP_NAME}"
   echo "  🔧  Flutter ${FLUTTER_VER} · Dart · Android SDK · Web"
   echo ""
-  echo "  ❯ frun          flutter run"
+  echo "  ❯ F5            \"Flutter (Emulator + Browser)\" — host emulator and host browser"
   echo "  ❯ frunw         flutter run -d web-server (port 8080)"
   echo "  ❯ ftest         flutter test"
   echo "  ❯ fanalyze      flutter analyze"
@@ -94,13 +86,13 @@ else
   echo "  │  (replaces '.' with your own org and app name as needed)         │"
   echo "  └──────────────────────────────────────────────────────────────────┘"
   echo ""
-  echo "  ┌─ Step 2: Activate Husky git hooks ───────────────────────────────┐"
-  echo "  │  pnpm install                                                    │"
+  echo "  ┌─ Step 2: Freeze the toolchain for this project ──────────────────┐"
+  echo "  │  scripts/pin-image.sh                                            │"
   echo "  └──────────────────────────────────────────────────────────────────┘"
   echo ""
   echo "  ┌─ Step 3: Start developing ────────────────────────────────────────┐"
+  echo "  │  F5      → \"Flutter (Emulator + Browser)\" on your host           │"
   echo "  │  frunw   → run on web (port 8080)                                │"
-  echo "  │  frun    → run on connected device                               │"
   echo "  │  fdoctor → check environment                                     │"
   echo "  └──────────────────────────────────────────────────────────────────┘"
   echo ""
