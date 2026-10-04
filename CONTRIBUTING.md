@@ -10,7 +10,7 @@ Out of scope:
 
 - Flutter application code, `lib/`, `pubspec.yaml`, `pubspec.lock`, `android/`, `ios/`, `web/` or `test/`. This template must stay a zero-code starting point; `flutter create` makes them per project.
 - Anything that belongs in the dev image (SDKs, system packages, shell aliases, the prompt). That is [`flutter-devcontainer`](https://github.com/alihaidar0/flutter-devcontainer).
-- Deployment workflows and secrets. Targets differ per project.
+- Deployment workflows and secrets. Targets differ per project (release signing is documented in [`docs/android-signing.md`](docs/android-signing.md), not configured).
 
 ## Branching and pull requests
 
@@ -47,8 +47,9 @@ Valid types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `
 ## Making changes
 
 - **Dev container, compose, VS Code config** — edit `.devcontainer/devcontainer.json`, `docker-compose.yml` or `.vscode/*`, and test with **Dev Containers: Rebuild Container**. Anything the image already provides (user, paths, aliases, pnpm, Chrome) is not repeated here.
-- **Workflows** — edit `.github/workflows/*.yml`. The template must pass on a fresh checkout (Tier 1, no `pubspec.yaml`) and on an initialised project (Tier 3); every new job needs a tier condition and a place in the `ci-passed` job's `needs:`.
+- **Workflows** — edit `.github/workflows/*.yml`. The template must pass on a fresh checkout (Tier 1, no `pubspec.yaml`) and on an initialised project (Tier 3); every new job needs a tier condition and a place in the `ci-passed` job's `needs:`. `build.yml` is not a required check: it must skip cleanly until `pubspec.yaml` and `pubspec.lock` exist, then build **staging** for pull requests into `develop` and **production** for pull requests into and merges to `main`, with no edit needed in a generated project. `release.yml` publishes calendar-versioned releases here and `pubspec.yaml`-versioned ones in a project.
 - **Git hooks** — edit `.husky/*`. They must never block a commit or push when `pubspec.yaml` is absent (see the Tier-1 guard in `.husky/pre-commit`).
+- **Template follows the newest, projects freeze** — the template stays on `:latest` and the newest stable Flutter; a project runs `scripts/pin-image.sh` to freeze the dev image and its Flutter version. Do not pin the template itself.
 - **Pinned versions** — GitHub Actions are pinned to a full commit SHA with a `# vX.Y.Z` comment, and `packageManager` (pnpm) equals the version the image pre-caches. Verify a version on its official channel before changing it, and name the bump in the pull request title.
 - **Node stays on 24**, matching the image. `engines.node` and the Dependabot ignore rule must agree.
 - **Shell scripts and hooks use LF line endings** and are executable in Git; a CRLF script fails inside the container.
@@ -66,7 +67,7 @@ docker run --rm -v "$PWD:/repo:ro" -w /repo ghcr.io/zizmorcore/zizmor:latest --n
 docker compose config --quiet
 echo "chore: example" | pnpm exec commitlint     # must pass
 echo "bad message" | pnpm exec commitlint        # must fail
-git ls-files -s scripts .husky .github/scripts   # every mode must be 100755
+git ls-files -s scripts .husky .github/scripts   # every mode must be 100755 (new files: git add --chmod=+x <file>)
 ```
 
 CI runs the same checks and more.

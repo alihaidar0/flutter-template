@@ -2,55 +2,36 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Flutter (Debug)",
+      // The emulator runs on the host; the task connects the container's adb to
+      // it first (see scripts/connect-emulator.sh).
+      "name": "Flutter (Android — host emulator)",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
-      "flutterMode": "debug"
+      "flutterMode": "debug",
+      "deviceId": "host.docker.internal:5555",
+      "preLaunchTask": "Connect host emulator"
     },
     {
-      "name": "Flutter (Profile)",
-      "type": "dart",
-      "request": "launch",
-      "program": "lib/main.dart",
-      "flutterMode": "profile"
-    },
-    {
-      "name": "Flutter (Release)",
-      "type": "dart",
-      "request": "launch",
-      "program": "lib/main.dart",
-      "flutterMode": "release"
-    },
-    {
-      "name": "Flutter (Web Server — port 8080)",
+      // Serves the app on 0.0.0.0:8080 inside the container. VS Code forwards
+      // the port (devcontainer.json) and opens it in your host browser.
+      "name": "Flutter (Web — host browser)",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
       "flutterMode": "debug",
       "deviceId": "web-server",
       "args": ["--web-port", "8080", "--web-hostname", "0.0.0.0"]
-    },
+    }
+  ],
+  "compounds": [
     {
-      "name": "Flutter (Chrome)",
-      "type": "dart",
-      "request": "launch",
-      "program": "lib/main.dart",
-      "flutterMode": "debug",
-      "deviceId": "chrome"
-    },
-    {
-      "name": "Flutter (Android — host emulator)",
-      "type": "dart",
-      "request": "launch",
-      "program": "lib/main.dart",
-      "flutterMode": "debug",
-      "deviceId": "host.docker.internal:5555"
-    },
-    {
-      "name": "Flutter (Attach)",
-      "type": "dart",
-      "request": "attach"
+      "name": "Flutter (Emulator + Browser)",
+      "configurations": [
+        "Flutter (Android — host emulator)",
+        "Flutter (Web — host browser)"
+      ],
+      "stopAll": true
     }
   ]
 }

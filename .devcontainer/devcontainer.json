@@ -9,146 +9,52 @@
   "workspaceFolder": "/workspace",
   "shutdownAction": "stopCompose",
 
-  // ── Remote environment ────────────────────────────────────────────────────
-  "remoteEnv": {
-    "GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=accept-new"
+  // ── Host requirements ─────────────────────────────────────────────────────
+  // Lets Codespaces pick a machine that can build Android; ignored locally.
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
   },
 
   // ── VS Code customisations ────────────────────────────────────────────────
+  // Extensions are installed inside the container. The image's own metadata
+  // already adds the Dart and Flutter extensions, dart.flutterSdkPath and the
+  // `developer` user. Shared editor settings live in .vscode/settings.json
+  // (applied here too); only container-specific settings are set below.
   "customizations": {
     "vscode": {
       "extensions": [
-        // ── Flutter & Dart ────────────────────────────────────────────────────
-        "Dart-Code.flutter",
-        "Dart-Code.dart-code",
-        "Nash.awesome-flutter-snippets",
-        "localizely.flutter-intl",
+        // Flutter & Dart (the Dart/Flutter extensions come from the image)
         "pflannery.vscode-versionlens",
 
-        // ── Git ──────────────────────────────────────────────────────────────
+        // Git & GitHub
         "eamodio.gitlens",
         "mhutchie.git-graph",
-
-        // ── Docker ───────────────────────────────────────────────────────────
-        "ms-azuretools.vscode-docker",
-
-        // ── CI/CD ────────────────────────────────────────────────────────────
+        "GitHub.vscode-pull-request-github",
         "github.vscode-github-actions",
 
-        // ── Utilities ────────────────────────────────────────────────────────
+        // Config, shell & containers
+        "ms-azuretools.vscode-docker",
         "redhat.vscode-yaml",
-        "PKief.material-icon-theme",
-        "aaron-bond.better-comments",
-        "gruntfuggly.todo-tree",
+        "mikestead.dotenv",
+        "timonwong.shellcheck",
+
+        // Code quality & docs
+        "EditorConfig.EditorConfig",
         "usernamehw.errorlens",
         "streetsidesoftware.code-spell-checker",
-        "mikestead.dotenv",
-        "oderwat.indent-rainbow",
-        "EditorConfig.EditorConfig",
         "davidanson.vscode-markdownlint",
         "bierner.markdown-mermaid",
-        "0xTanzim.filetree-pro",
 
-        // ── AI ───────────────────────────────────────────────────────────────
+        // AI
         "GitHub.copilot",
         "GitHub.copilot-chat",
+        "anthropic.claude-code",
         "DorianMassoulier.repomix-runner"
       ],
       "settings": {
-        // ── Editor ────────────────────────────────────────────────────────────
-        "editor.tabSize": 2,
-        "editor.insertSpaces": true,
-        "editor.rulers": [80, 120],
-        "editor.renderWhitespace": "boundary",
-        "editor.formatOnSave": true,
-        "editor.formatOnPaste": false,
-        "editor.suggest.preview": true,
-        "editor.inlineSuggest.enabled": true,
-
-        // ── Dart / Flutter ────────────────────────────────────────────────────
-        "[dart]": {
-          "editor.defaultFormatter": "Dart-Code.dart-code",
-          "editor.formatOnSave": true,
-          "editor.selectionHighlight": false,
-          "editor.suggest.snippetsPreventQuickSuggestions": false,
-          "editor.suggestSelection": "first",
-          "editor.tabCompletion": "onlySnippets",
-          "editor.wordBasedSuggestions": "off"
-        },
-        "dart.flutterSdkPath": "/home/developer/flutter",
-        "dart.lineLength": 120,
-        "dart.debugExternalPackageLibraries": false,
-        "dart.debugSdkLibraries": false,
-        "dart.previewFlutterUiGuides": true,
-        "dart.previewFlutterUiGuidesCustomTracking": true,
-        "dart.showInspectorNotificationsForWidgetErrors": true,
-
-        // ── Files ─────────────────────────────────────────────────────────────
-        "files.trimTrailingWhitespace": true,
-        "files.insertFinalNewline": true,
-        "files.trimFinalNewlines": true,
-        "files.eol": "\n",
-        "files.associations": {
-          "**/*.env*": "dotenv",
-          "Dockerfile*": "dockerfile",
-          "*.sh": "shellscript",
-          "*.arb": "json"
-        },
-        "files.exclude": {
-          "**/.git": false,
-          "**/.dart_tool": true,
-          "**/build": true,
-          "**/.flutter-plugins": true,
-          "**/.flutter-plugins-dependencies": true
-        },
-        "files.watcherExclude": {
-          "**/build/**": true,
-          "**/.dart_tool/**": true
-        },
-
-        // ── Search ────────────────────────────────────────────────────────────
-        "search.exclude": {
-          "**/build": true,
-          "**/.dart_tool": true,
-          "**/node_modules": true,
-          "**/coverage": true
-        },
-
-        // ── Terminal ──────────────────────────────────────────────────────────
-        "terminal.integrated.defaultProfile.linux": "bash",
-        "terminal.integrated.fontSize": 14,
-        "terminal.integrated.scrollback": 5000,
-
-        // ── Explorer sidebar ──────────────────────────────────────────────────
-        "explorer.fileNesting.enabled": true,
-        "explorer.fileNesting.expand": false,
-        "explorer.fileNesting.patterns": {
-          "pubspec.yaml": "pubspec.lock, .flutter-plugins, .flutter-plugins-dependencies, .metadata, analysis_options.yaml",
-          ".env": ".env.*, .envrc",
-          "README.md": "CHANGELOG.md, CONTRIBUTING.md, LICENSE"
-        },
-
-        // ── Git ───────────────────────────────────────────────────────────────
-        "git.autofetch": true,
-        "git.confirmSync": false,
-        "git.enableSmartCommit": true,
-        "gitlens.hovers.currentLine.over": "line",
-
-        // ── Error Lens ────────────────────────────────────────────────────────
-        "errorLens.enabledDiagnosticLevels": ["error", "warning"],
-        "errorLens.followCursor": "allLines",
-
-        // ── Spell checker ─────────────────────────────────────────────────────
-        "cSpell.words": [
-          "commitlint",
-          "devcontainer",
-          "dockerfile",
-          "flutterfire",
-          "husky",
-          "pubspec",
-          "riverpod",
-          "widgetbook"
-        ]
+        "terminal.integrated.defaultProfile.linux": "bash"
       }
     }
   },
@@ -165,62 +71,12 @@
   },
 
   // ── Lifecycle hooks ───────────────────────────────────────────────────────
-  //
-  // postCreateCommand — runs once when the container is first created.
-  //
-  //   1. sudo git config --system --add safe.directory /workspace
-  //      On Windows/macOS, /workspace is a bind mount from the host, so the
-  //      container's 'developer' user does not match the host's file owner.
-  //      Git's ownership check then refuses to operate on it at all —
-  //      including from scripts run non-interactively — and fails with
-  //      "fatal: not in a git directory" or "dubious ownership". This must
-  //      run BEFORE `pnpm install`, because Husky's own `prepare` script
-  //      (triggered by install) immediately runs `git rev-parse` to register
-  //      hooks.
-  //
-  //      System scope (not --global) because ~/.gitconfig is bind-mounted
-  //      READ-ONLY from the host (see docker-compose.yml, ":ro" suffix on the
-  //      .gitconfig volume). A --global write here fails outright with
-  //      "error: could not write config file ... Device or resource busy",
-  //      which aborts postCreateCommand entirely (exit code 4) and skips
-  //      Corepack/pnpm install too. /etc/gitconfig has no such restriction.
-  //      welcome.sh (postStartCommand) sets this same entry on every start as
-  //      a safety net — both calls are safe to keep, Git no-ops on duplicates.
-  //
-  //   2. Corepack enable/prepare — installs Husky + commitlint and registers
-  //      all git hooks automatically. Safe to run on a fresh template:
-  //      package.json is always present and `pnpm install` only installs the
-  //      two declared devDependencies. Flutter is NOT initialised here — the
-  //      developer does that manually.
-  //
-  //      Corepack (which provides pnpm) ships with Node but is dormant until
-  //      enabled, and its shim lives in /usr/local/bin, which is root-owned —
-  //      so activation needs `sudo`. `flutter-devcontainer` now activates
-  //      Corepack/pnpm at image build time, so this explicit step is normally
-  //      a no-op once you're on an image built after that fix; it's kept here
-  //      as a safety net so this template still works correctly against older
-  //      cached images.
-  //
-  //      COREPACK_ENABLE_DOWNLOAD_PROMPT=0 is set (via `sudo env`, since a
-  //      bare `VAR=0 sudo cmd` does not survive the sudo boundary) but this
-  //      flag is known to be unreliable across Corepack versions — see
-  //      nodejs/corepack#727 and #550, where the prompt appears despite the
-  //      flag being set correctly. Since postCreateCommand runs inside an
-  //      allocated pseudo-terminal, the prompt can genuinely block forever
-  //      with no way to answer it. `yes |` is the robust fix: it feeds a
-  //      continuous stream of "y" into stdin, so any prompt Corepack shows
-  //      is answered automatically regardless of whether the env var took
-  //      effect. The env var is kept as the documented, forward-compatible
-  //      signal; `yes` is the belt-and-braces guarantee.
-  //
-  // postStartCommand — runs on every container start.
-  //   Shows a context-aware Flutter getting-started banner.
-  //
-  "postCreateCommand": "sudo git config --system --add safe.directory /workspace && yes | sudo env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack enable && yes | sudo env COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare pnpm@latest --activate && pnpm install",
-  "postStartCommand": "bash /workspace/scripts/welcome.sh",
-
-  // ── Remote user ───────────────────────────────────────────────────────────
-  // Matches the non-root 'developer' user created in the devcontainer image.
-  // All Flutter SDK paths, pub cache, and Android SDK are owned by this user.
-  "remoteUser": "developer"
+  // postCreateCommand (once, on creation): installs Husky + commitlint and
+  // registers the git hooks. Corepack and pnpm come prepared in the image at
+  // the version pinned by `packageManager`; Flutter is NOT initialised here —
+  // the developer runs `flutter create` manually.
+  // postStartCommand (every start): the tiered welcome banner and the adb
+  // auto-connect to a host emulator.
+  "postCreateCommand": "pnpm install",
+  "postStartCommand": "bash /workspace/scripts/welcome.sh"
 }

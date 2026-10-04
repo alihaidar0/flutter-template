@@ -1,4 +1,7 @@
-while read -r _ _ remote_ref _; do
+# ── Block pushes to main ──────────────────────────────────────────────────────
+# A local convenience; the GitHub ruleset is the real gate.
+pushing_commits=0
+while read -r _ local_sha remote_ref _; do
   branch="${remote_ref#refs/heads/}"
   if [ "$branch" = "main" ]; then
     echo ""
@@ -10,6 +13,26 @@ while read -r _ _ remote_ref _; do
     echo ""
     exit 1
   fi
+  # Anything but all zeros is a real commit (a branch deletion pushes zeros).
+  case "$local_sha" in
+    *[!0]*) pushing_commits=1 ;;
+  esac
 done
+
+# ── Static analysis before commits leave the machine ──────────────────────────
+# Skipped on a fresh template (no pubspec.yaml), when only deleting branches, and
+# outside the dev container (Flutter lives there; CI runs the analysis too).
+in_container=0
+if [ -f /.dockerenv ] || [ -f /run/.containerenv ] || [ -n "${REMOTE_CONTAINERS:-}" ] || [ -n "${CODESPACES:-}" ]; then
+  in_container=1
+fi
+if [ "$in_container" = 1 ] && [ "$pushing_commits" = 1 ] && [ -f "pubspec.yaml" ]; then
+  echo "Running flutter analyze before push..."
+  flutter analyze || {
+    echo ""
+    echo "✖ flutter analyze reported issues — fix them before pushing."
+    exit 1
+  }
+fi
 
 exit 0
