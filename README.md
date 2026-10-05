@@ -223,6 +223,7 @@ fixes: [section 8](#8-run-on-your-host-emulator-and-browser).
 | `scripts/welcome.sh` | Optional: change the banner title and link |
 | `.github/workflows/image-contract.yml`, `.github/scripts/check-image-contract.sh`, the `release` job of `release.yml`, the `template-guard` job of `ci.yml` | Inert in a project (they only run in the template); delete them if you like |
 | `docs/` | Keep as a reference or delete |
+| Template version | Note which template release you started from (the newest on the [template's Releases page](https://github.com/alihaidar0/flutter-template/releases) on the day you created the app, for example `v2026.10.04`) in your app's README. Later, that page shows what changed since then ([section 7.3](#73-releases-and-the-changelog)) |
 | `lib/`, `test/`, `pubspec.yaml`, `android/`, `ios/`, `web/` | Yours — created by `flutter create`; add packages with `flutter pub add` |
 
 Nothing else needs editing: the workflows, hooks, Dev Container and VS Code
@@ -611,6 +612,11 @@ flowchart LR
   (`2.0.0-beta.1`) marks a pre-release. Label pull requests (`feature`, `bug`,
   `breaking change`, `documentation`, …); `skip-changelog` leaves one out.
 - **In the template** the tag is the calendar date (`vYYYY.MM.DD`).
+  An app created from the template does not carry its history, so the tag is not
+  recorded for you: to see what changed in the toolchain (hooks, workflows,
+  Dev Container) since you started, open the
+  [template's Releases page](https://github.com/alihaidar0/flutter-template/releases)
+  and read the releases newer than the one you noted in your README.
 - Tags `v*` are immutable (`tags-protect`).
 
 **Cut a release:** open the pull request `develop` → `main` titled
@@ -796,8 +802,11 @@ opposite and change only when you decide. Everything that can move is frozen per
 After pinning, enable the `pub` and `docker-compose` blocks in
 `.github/dependabot.yml`: updates then arrive as pull requests you review (with a
 7-day cooldown), never silently. To move an app to a newer toolchain run
-`scripts/pin-image.sh latest` (or a `flutter-X.Y.Z` tag), rebuild the container and
-commit the change.
+`scripts/pin-image.sh` again (it picks the newest `flutter-X.Y.Z.R` of the Flutter in
+your container; pass a tag, or `latest` for the newest build, to choose another),
+rebuild the container, run the script once more so `pubspec.yaml` follows the new
+Flutter, and commit the change. A Dependabot image pull request changes only
+`docker-compose.yml`: update `environment: flutter:` in the same pull request.
 
 ### Updating the dev image
 
@@ -953,7 +962,7 @@ All aliases are baked into the base image by `flutter-devcontainer`. A quick ref
 | **Image**     | `alihaidar199527/flutter-devcontainer:latest`                                                                                                       |
 | **Source**    | [`github.com/alihaidar0/flutter-devcontainer`](https://github.com/alihaidar0/flutter-devcontainer)                                                  |
 | **Platforms** | `linux/amd64` · `linux/arm64`                                                                                                                        |
-| **Tags**      | `latest` · `flutter-X.Y.Z` · `YYYY.MM.DD` · `sha-xxxxxxx` — the images are signed (see the image repository for the `cosign verify` command); run `scripts/pin-image.sh` in each project for a reproducible environment |
+| **Tags**      | `latest` (moves with every build) · `flutter-X.Y.Z.R` (`X.Y.Z` = Flutter release, `R` = image revision; permanent, never changed or deleted) — the images are signed (see the image repository for the `cosign verify` command); run `scripts/pin-image.sh` in each project to pin the newest `flutter-X.Y.Z.R` and its digest |
 | **Contents**  | Flutter (stable) · Dart · Android SDK 36 · Java 21 (Temurin) · Node.js 24 LTS · Firebase CLI · FlutterFire CLI · Chromium + chromedriver · GitHub CLI · Starship |
 
 ---
