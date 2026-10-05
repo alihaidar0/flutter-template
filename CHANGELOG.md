@@ -17,6 +17,12 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- `pr-labels.yml`: adds labels to a pull request from its Conventional Commit
+  title (`feat` → `feature`, `fix` → `bug`, `docs` → `documentation`, `ci` →
+  `ci`, `deps` scope → `dependencies`, `!` → `breaking change`, a
+  `develop` → `main` promotion → `skip-changelog`) so the generated release
+  notes no longer depend on setting labels by hand. It only adds labels and is
+  not part of `CI passed`.
 - `.editorconfig` for consistent formatting across editors.
 - `.env.example` — starter environment variable template.
 - `.vscode/extensions.json`, `settings.json`, `launch.json` — shared editor
@@ -45,6 +51,16 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Changed
 
+- **`develop` is now the default branch** (set in the repository settings). Dependabot
+  security updates, which always target the default branch, now arrive against
+  `develop` like version updates, so nothing has to be re-targeted by hand;
+  new pull requests default to it too. Rulesets, the **Verify source branch**
+  job (only `develop` may target `main`) and the release flow are unchanged.
+  A repository created from the template starts with `develop`; create `main`
+  from it once (`git push origin develop:main`, see `docs/github-setup.md`).
+- `.husky/pre-push` blocks direct pushes to `develop` as well as `main`, once the
+  branch exists on the remote (creating it still works). The rulesets remain
+  the real gate.
 - README: apps are told to note the template release they started from and to
   read the template's Releases page to see what changed since (sections 2.4
   and 7.3).
