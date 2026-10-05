@@ -65,7 +65,7 @@ body:
     id: image-tag
     attributes:
       label: Dev image tag
-      description: The flutter-devcontainer tag the container runs, e.g. `latest` or `flutter-3.47.0`.
+      description: The flutter-devcontainer tag the container runs, e.g. `latest` or `flutter-X.Y.Z.R`.
       placeholder: latest
 
   - type: dropdown

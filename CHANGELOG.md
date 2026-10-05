@@ -45,6 +45,15 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Changed
 
+- README: apps are told to note the template release they started from and to
+  read the template's Releases page to see what changed since (sections 2.4
+  and 7.3).
+- `scripts/pin-image.sh` follows the image's new permanent tag format
+  `flutter-X.Y.Z.R` (Flutter release plus image revision): by default it pins
+  the newest revision for the Flutter in the container, then resolves it to its
+  digest. The old `sha-xxxxxxx` and date tags are no longer published; the
+  README tag table and the bug report example are updated. The template itself
+  still follows `:latest`.
 - **Bumped `packageManager` from `pnpm@11.28.2` to `pnpm@12.9.1`** and
   `engines.pnpm` to `^12.0.0`. This is a **major** version bump, made together
   with `flutter-devcontainer` (which pre-caches the same version). The

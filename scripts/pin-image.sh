@@ -12,12 +12,21 @@
 #      get` refreshes pubspec.lock to match.
 #
 # Usage: scripts/pin-image.sh [tag]
-#   tag  defaults to flutter-<version of the Flutter in this container>,
-#        or `latest` when Flutter is not available yet.
+#   tag  defaults to the newest flutter-X.Y.Z.R published for the Flutter in this
+#        container (X.Y.Z = Flutter release, R = image revision; a tag is never
+#        changed or deleted). When that Flutter has no tag, the newest
+#        flutter-X.Y.Z.R overall is used, and `latest` as the last resort.
 set -euo pipefail
 
 repo="alihaidar199527/flutter-devcontainer"
 compose="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/docker-compose.yml"
+
+# Newest flutter-X.Y.Z.R tag whose name contains $1 (empty when none exists).
+newest_tag() {
+  curl -fsSL "https://hub.docker.com/v2/repositories/${repo}/tags?page_size=100&name=$1" 2>/dev/null \
+    | grep -oE '"name"[[:space:]]*:[[:space:]]*"flutter-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"' \
+    | sed -E 's/.*"(flutter-[^"]+)"$/\1/' | sort -V | tail -1 || true
+}
 
 tag="${1:-}"
 flutter_version=""
@@ -26,8 +35,21 @@ if command -v flutter >/dev/null 2>&1; then
     | sed -nE 's/.*"frameworkVersion"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' | head -1 || true)"
 fi
 if [[ -z "$tag" ]]; then
-  tag="latest"
-  [[ -n "$flutter_version" ]] && tag="flutter-${flutter_version}"
+  [[ -n "$flutter_version" ]] && tag="$(newest_tag "flutter-${flutter_version}.")"
+  [[ -z "$tag" ]] && tag="$(newest_tag "flutter-")"
+  [[ -z "$tag" ]] && tag="latest"
+  echo "Selected image tag: ${tag}"
+fi
+
+# The image decides which Flutter the project runs. Only write the Flutter pin
+# to pubspec.yaml when the chosen tag is the Flutter of this container; for any
+# other tag (a newer release, `latest`) pubspec.yaml must wait until the
+# container has been rebuilt from the pinned image and this script runs again.
+pin_flutter=1
+if [[ -n "$flutter_version" && "$tag" != "flutter-${flutter_version}."* ]]; then
+  pin_flutter=0
+  echo "Warning: ${tag} is not a flutter-${flutter_version}.R tag, so pubspec.yaml is left unchanged." >&2
+  echo "         Rebuild the container, then run scripts/pin-image.sh again to pin the new Flutter." >&2
 fi
 
 # ── Resolve the tag to its immutable digest (anonymous Docker Hub pull token) ──
@@ -42,7 +64,8 @@ digest="$(
 )" || digest=""
 if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
   echo "Could not resolve ${repo}:${tag} on Docker Hub (is the tag published?)." >&2
-  echo "Pass an existing tag explicitly, for example: scripts/pin-image.sh latest" >&2
+  echo "Pass an existing tag explicitly (see the tags page on Docker Hub), for example:" >&2
+  echo "  scripts/pin-image.sh flutter-X.Y.Z.R   or   scripts/pin-image.sh latest" >&2
   exit 1
 fi
 
@@ -59,7 +82,7 @@ echo "  image: ${pinned}"
 # ── Pin Flutter in pubspec.yaml so CI installs the same version ──────────────
 pubspec="$(dirname "$compose")/pubspec.yaml"
 pinned_pubspec=0
-if [[ -n "$flutter_version" && -f "$pubspec" ]] && grep -q '^environment:' "$pubspec"; then
+if [[ "$pin_flutter" -eq 1 && -n "$flutter_version" && -f "$pubspec" ]] && grep -q '^environment:' "$pubspec"; then
   tmp="$(mktemp)"
   # Put `flutter:` first under `environment:` and drop any previous value.
   awk -v v="$flutter_version" '
