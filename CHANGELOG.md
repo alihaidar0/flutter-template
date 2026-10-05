@@ -23,8 +23,6 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   the project, the template release it started from and the license line). It
   refuses to overwrite a README that is no longer the guide unless `--force` is
   given, and the `welcome.sh` banner lists it as step 3.
-- The Emulator VS Code extension (`DiemasMichiels.emulate`) is installed in the
-  dev container.
 - `bootstrap-main.yml`: a repository created from the template starts with
   only the default branch, `develop`. This workflow creates `main` from it the
   first time it is missing (it starts on the repository's first commit, and again
@@ -241,6 +239,17 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   this note if you've added workspace-level pnpm config since. See
   [pnpm 11.0 release notes](https://pnpm.io/blog/releases/11.0) before
   merging if you're unsure.
+
+### Fixed
+
+- `git push` from the dev container no longer authenticates as the wrong
+  GitHub account when the forwarded ssh-agent holds keys for several accounts.
+  `welcome.sh` now runs the new `scripts/pin-ssh-key.sh`, which finds the key
+  that belongs to the repository's account and writes a `Host` entry for the
+  `origin` host (`github.com` or a host-only alias) with `IdentityFile` set to
+  that key's public file and `IdentitiesOnly yes`, so ssh offers that one key
+  instead of every key in the agent. No private key enters the container, and
+  the pin is re-chosen when its key leaves the agent or with `--force`.
 
 ## [0.1.0] — Initial template
 
