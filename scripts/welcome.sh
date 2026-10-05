@@ -8,19 +8,15 @@ if [ ! -f "$WORKSPACE/.env" ] && [ -f "$WORKSPACE/.env.example" ]; then
   cp "$WORKSPACE/.env.example" "$WORKSPACE/.env"
 fi
 
-# ── SSH host alias ─────────────────────────────────────────────────────────
+# ── SSH host alias and key ──────────────────────────────────────────────────
 # Keys come from your host's ssh-agent (forwarded by VS Code) and ~/.ssh is not
-# mounted, so a host-only alias in the remote URL (for example
-# git@github.com-work:owner/repo.git, defined in the host's ~/.ssh/config)
-# would not resolve here. Map such an alias to github.com inside the container.
+# mounted. A host-only alias in the remote URL (for example
+# git@github.com-work:owner/repo.git, defined in the host's ~/.ssh/config) would
+# not resolve here, and with several accounts' keys in the agent GitHub would
+# accept whichever key comes first. pin-ssh-key.sh maps the alias to github.com
+# and pins this repository's key (public key + IdentitiesOnly).
 # Non-fatal: it is a convenience and must never block container start.
-remote_host="$(git -C "$WORKSPACE" remote get-url origin 2>/dev/null \
-  | sed -nE 's#^(ssh://)?git@([^:/]+)[:/].*#\2#p')" || true
-if [[ "$remote_host" == github.com-* ]] && ! grep -qsx "Host ${remote_host}" "$HOME/.ssh/config"; then
-  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
-  printf 'Host %s\n  HostName github.com\n  User git\n' "$remote_host" >> "$HOME/.ssh/config" || true
-  chmod 600 "$HOME/.ssh/config" || true
-fi
+bash "$WORKSPACE/scripts/pin-ssh-key.sh" || true
 
 # ── Git hooks ───────────────────────────────────────────────────────────────
 # postCreateCommand (`pnpm install`) registers the Husky hooks. Repeat it here
