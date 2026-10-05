@@ -72,8 +72,11 @@ updates:
   #
   # ACTION REQUIRED in a project created from this template: run
   # scripts/pin-image.sh once so docker-compose.yml names an exact build
-  # (<tag>@sha256:<digest>), then uncomment the block below. The toolchain then
-  # only changes through a reviewed pull request, never silently.
+  # (flutter-X.Y.Z.R@sha256:<digest>), then uncomment the block below. The
+  # dotted tag lets Dependabot order and bump it, so the toolchain only changes
+  # through a reviewed pull request (run CI before merging: a new Flutter can
+  # change the Dart and Android toolchain; also update `environment: flutter:`
+  # in pubspec.yaml in that pull request), never silently.
   #
   # - package-ecosystem: "docker-compose"
   #   directory: "/"
