@@ -471,11 +471,11 @@ Check inside the container with `ssh-add -l` and `ssh -T git@github.com`.
 the forwarded agent holds every key you loaded, so without help a push could
 authenticate as the wrong account (`Permission to owner/repo.git denied to
 <other-account>`). `welcome.sh` therefore runs `scripts/pin-ssh-key.sh` on every
-start. It reads the host of your `origin` remote (`github.com`, or an alias from
-your host's `~/.ssh/config` such as `git@github.com-work:owner/repo.git`), finds
-the key in the agent that belongs to this repository's account (the only key, else
-the one GitHub greets as the repository owner, else the first one that can read
-it) and writes a `Host` entry for it in the container's `~/.ssh/config`:
+start. When your `origin` remote uses a host alias from your host's `~/.ssh/config`
+(for example `git@github.com-work:owner/repo.git`), it finds the key in the agent
+that belongs to this repository's account (the only key, else the one GitHub greets
+as the repository owner, else the first one that can read it) and writes a `Host`
+entry for it in the container's `~/.ssh/config`:
 
 ```text
 Host github.com-work
@@ -490,6 +490,28 @@ This is OpenSSH's documented way to pick one key: `IdentityFile` names the
 enters the container) and `IdentitiesOnly yes` stops ssh from offering the agent's
 other keys. If you later switch keys on the host, run `scripts/pin-ssh-key.sh
 --force`. Keep `origin` on the alias; do not rewrite it to `https://`.
+
+Only aliases are pinned, because an alias names exactly one account. A plain
+`git@github.com:` remote is left alone: pinning `github.com` itself would apply to
+every repository the container fetches (other accounts' private repositories,
+submodules). With several accounts, use an alias for the project's remote, or load
+only that account's key on the host.
+
+**Choosing the key yourself.** The automatic choice is a guess: when two of your
+accounts can read the same repository (an organisation), it takes the first one that
+can, and some agents ask you to approve every key it tries. To choose the key
+explicitly, list the fingerprints and pin one:
+
+```bash
+ssh-add -l                                  # 256 SHA256:AbC... you@example.com (ED25519)
+scripts/pin-ssh-key.sh --key SHA256:AbC...  # pins exactly that key, nothing is probed
+```
+
+The fingerprint is public. It is remembered in this clone's `.git/config`
+(`devcontainer.sshkey`), so it survives container rebuilds and is not tracked. If that
+key is not in the agent the script says so and pins nothing, instead of falling back
+to another account's key. Go back to the automatic choice with `git config --unset
+devcontainer.sshkey`.
 
 **Identity.** Check what a commit will use, and set it for this repository only
 (never `--global`) if needed; it applies on both sides:
@@ -1045,11 +1067,11 @@ reload the VS Code window.
 
 The agent holds keys of several accounts and ssh used the wrong one. The container
 pins the right key on every start (see [Git and SSH](#git-and-ssh)). If the start
-printed a notice that it could not tell which key belongs to the repository, load
-that account's key on the host (`ssh-add -D`, then `ssh-add <key>`), and run:
+printed a notice that it could not tell which key belongs to the repository, or it
+pinned the wrong one, choose the key yourself (`ssh-add -l` lists the fingerprints):
 
 ```bash
-scripts/pin-ssh-key.sh --force
+scripts/pin-ssh-key.sh --key SHA256:...
 cat ~/.ssh/config          # the Host entry must show IdentityFile and IdentitiesOnly yes
 ssh -T git@<host-of-origin>  # "Hi <account>!" must name the repository's account
 ```

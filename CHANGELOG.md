@@ -246,10 +246,15 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   GitHub account when the forwarded ssh-agent holds keys for several accounts.
   `welcome.sh` now runs the new `scripts/pin-ssh-key.sh`, which finds the key
   that belongs to the repository's account and writes a `Host` entry for the
-  `origin` host (`github.com` or a host-only alias) with `IdentityFile` set to
-  that key's public file and `IdentitiesOnly yes`, so ssh offers that one key
-  instead of every key in the agent. No private key enters the container, and
-  the pin is re-chosen when its key leaves the agent or with `--force`.
+  `origin` host alias (a plain `github.com` remote is left alone) with
+  `IdentityFile` set to that key's public file and `IdentitiesOnly yes`, so ssh
+  offers that one key instead of every key in the agent. No private key enters
+  the container, and the pin is re-chosen when its key leaves the agent or with
+  `--force`. `scripts/pin-ssh-key.sh --key SHA256:...` chooses the key
+  explicitly instead of guessing (for example when two accounts can read the
+  same repository): the fingerprint is remembered in the clone's `.git/config`
+  as `devcontainer.sshkey`, nothing is probed, and a key missing from the agent
+  is reported rather than replaced by another account's key.
 
 ## [0.1.0] — Initial template
 
