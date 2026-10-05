@@ -240,6 +240,17 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   [pnpm 11.0 release notes](https://pnpm.io/blog/releases/11.0) before
   merging if you're unsure.
 
+### Fixed
+
+- `git push` from the dev container no longer authenticates as the wrong
+  GitHub account when the forwarded ssh-agent holds keys for several accounts.
+  `welcome.sh` now runs the new `scripts/pin-ssh-key.sh`, which finds the key
+  that belongs to the repository's account and writes a `Host` entry for the
+  `origin` host (`github.com` or a host-only alias) with `IdentityFile` set to
+  that key's public file and `IdentitiesOnly yes`, so ssh offers that one key
+  instead of every key in the agent. No private key enters the container, and
+  the pin is re-chosen when its key leaves the agent or with `--force`.
+
 ## [0.1.0] — Initial template
 
 ### Added

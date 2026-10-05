@@ -145,7 +145,7 @@ flowchart LR
     S1["docker compose up<br/>pulls the image"] --> S2["entrypoint.dev.sh<br/>fixes hook permissions and<br/>node_modules ownership"]
     S2 --> S3["postCreateCommand<br/>pnpm install<br/>registers the Husky hooks"]
     S3 --> S4["postStartCommand<br/>welcome.sh"]
-    S4 --> S5["self-heals missing hooks,<br/>maps the SSH alias,<br/>connects the host emulator,<br/>prints the banner"]
+    S4 --> S5["self-heals missing hooks,<br/>maps the SSH alias and pins its key,<br/>connects the host emulator,<br/>prints the banner"]
 ```
 
 The terminal banner shows the next steps for the current state of the project.
@@ -467,13 +467,29 @@ ssh-add ~/.ssh/id_ed25519
 
 Check inside the container with `ssh-add -l` and `ssh -T git@github.com`.
 
-**Several GitHub accounts.** GitHub accepts the first key the agent offers, so
-with keys for more than one account loaded, a push may authenticate as the wrong
-one. Load only the key for this project's account (`ssh-add -D`, then
-`ssh-add <key>`). If your remote uses a host alias from your host's
-`~/.ssh/config` (for example `git@github.com-work:owner/repo.git`), `welcome.sh`
-maps that alias to `github.com` inside the container on every start. Keep
-`origin` on the alias; do not rewrite it to `https://`.
+**Several GitHub accounts.** GitHub accepts the first key the agent offers, and
+the forwarded agent holds every key you loaded, so without help a push could
+authenticate as the wrong account (`Permission to owner/repo.git denied to
+<other-account>`). `welcome.sh` therefore runs `scripts/pin-ssh-key.sh` on every
+start. It reads the host of your `origin` remote (`github.com`, or an alias from
+your host's `~/.ssh/config` such as `git@github.com-work:owner/repo.git`), finds
+the key in the agent that belongs to this repository's account (the only key, else
+the one GitHub greets as the repository owner, else the first one that can read
+it) and writes a `Host` entry for it in the container's `~/.ssh/config`:
+
+```text
+Host github.com-work
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/github.com-work.pub
+  IdentitiesOnly yes
+```
+
+This is OpenSSH's documented way to pick one key: `IdentityFile` names the
+**public** key (the private half stays in the agent on your host, so nothing secret
+enters the container) and `IdentitiesOnly yes` stops ssh from offering the agent's
+other keys. If you later switch keys on the host, run `scripts/pin-ssh-key.sh
+--force`. Keep `origin` on the alias; do not rewrite it to `https://`.
 
 **Identity.** Check what a commit will use, and set it for this repository only
 (never `--global`) if needed; it applies on both sides:
@@ -927,7 +943,8 @@ flutter-template/
 │   ├── entrypoint.dev.sh             ← fixes hook permissions and volume ownership on start
 │   ├── init-readme.sh                ← replaces this guide with the README of an app
 │   ├── pin-image.sh                  ← freezes the image and Flutter version of an app
-│   └── welcome.sh                    ← banner, hook self-heal, SSH alias, adb connect
+│   ├── pin-ssh-key.sh                ← pins the SSH key of the repository's GitHub account
+│   └── welcome.sh                    ← banner, hook self-heal, SSH key pin, adb connect
 ├── .editorconfig · .env.example · .gitattributes · .gitignore
 ├── CHANGELOG.md · CONTRIBUTING.md · LICENSE · README.md · SECURITY.md
 ├── commitlint.config.mjs
@@ -942,7 +959,7 @@ flutter-template/
 | --- | --- |
 | `.devcontainer/devcontainer.json` | Dev container config: pre-built image, forwards port 8080, installs extensions, declares Codespaces host requirements |
 | `docker-compose.yml` | Starts the container, mounts the project and named volumes, resolves the host gateway |
-| `scripts/*.sh` | Entrypoint, banner and hook self-heal, emulator connection, image pinning, app README generation |
+| `scripts/*.sh` | Entrypoint, banner and hook self-heal, emulator connection, image pinning, SSH key pinning, app README generation |
 | `.husky/*`, `commitlint.config.mjs` | The git hooks and the commit rules |
 | `package.json`, `pnpm-lock.yaml` | Husky + commitlint only — no app dependencies; Node ≥ 24; pnpm equal to the version the image pre-caches |
 | `.github/workflows/*` | CI, builds, releases, labels (synced and set from the PR title), the weekly image contract check |
@@ -1023,6 +1040,19 @@ ssh -T git@github.com # verify authentication
 
 If the list is empty, start the agent and `ssh-add` your key on the host, then
 reload the VS Code window.
+
+### `git push` fails — `denied to <another-account>`
+
+The agent holds keys of several accounts and ssh used the wrong one. The container
+pins the right key on every start (see [Git and SSH](#git-and-ssh)). If the start
+printed a notice that it could not tell which key belongs to the repository, load
+that account's key on the host (`ssh-add -D`, then `ssh-add <key>`), and run:
+
+```bash
+scripts/pin-ssh-key.sh --force
+cat ~/.ssh/config          # the Host entry must show IdentityFile and IdentitiesOnly yes
+ssh -T git@<host-of-origin>  # "Hi <account>!" must name the repository's account
+```
 
 ### Commit rejected — invalid commit message
 
