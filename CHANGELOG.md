@@ -69,8 +69,13 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   `develop` like version updates, so nothing has to be re-targeted by hand;
   new pull requests default to it too. Rulesets, the **Verify source branch**
   job (only `develop` may target `main`) and the release flow are unchanged.
-  A repository created from the template starts with `develop`; create `main`
-  from it once (`git push origin develop:main`, see `docs/github-setup.md`).
+  A repository created from the template starts with `develop`; the new
+  `bootstrap-main.yml` workflow creates `main` from it (see
+  `docs/github-setup.md`).
+- `labels.yml` also runs when `.github/labels.yml` changes on `develop`, now
+  the default branch, so label edits no longer wait for a release. The setup
+  guide and the README run it right after the repository is created, before the
+  first pull requests, because Dependabot and `pr-labels.yml` need the labels.
 - `.husky/pre-push` blocks direct pushes to `develop` as well as `main`, once the
   branch exists on the remote (creating it still works). The rulesets remain
   the real gate.

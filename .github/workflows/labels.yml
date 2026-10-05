@@ -1,13 +1,16 @@
 # .github/workflows/labels.yml
 #
 # Keeps the repository's labels identical to .github/labels.yml (labels as code).
-# Runs when that file changes on main, or on demand for the first-time bootstrap.
+# Runs when that file changes on develop (the default branch) or main, and on
+# demand: run it once right after creating a repository from the template,
+# before the first pull requests, so the labels they use exist.
 # Labels not listed in the file are left alone.
 name: Labels
 
 on:
   push:
     branches:
+      - develop
       - main
     paths:
       - ".github/labels.yml"

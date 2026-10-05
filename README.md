@@ -105,7 +105,7 @@ On Windows, start the agent once: see [Git and SSH](#git-and-ssh).
 
 ```mermaid
 flowchart TD
-    A["1. Use this template on GitHub<br/>(new repository, develop only)"] --> B["2. Clone to your machine"]
+    A["1. Use this template on GitHub<br/>(new repository, develop only),<br/>then run the Labels workflow once"] --> B["2. Clone to your machine"]
     B --> C["3. Open in VS Code, Reopen in Container<br/>(image pull, hooks installed automatically)"]
     C --> D["4. Topic branch<br/>(main is created automatically)"]
     D --> E["5. flutter create in the container terminal"]
@@ -118,13 +118,18 @@ flowchart TD
 
 ### 2.3 Step by step
 
-**1. Create the repository.** On the template's GitHub page click **Use this
-template → Create a new repository**. Choose the owner and name, and leave
-**Include all branches** unchecked. With the GitHub CLI:
+**1. Create the repository and its labels.** On the template's GitHub page click
+**Use this template → Create a new repository**. Choose the owner and name, and
+leave **Include all branches** unchecked. With the GitHub CLI:
 
 ```bash
 gh repo create OWNER/my_app --template alihaidar0/flutter-template --private --clone
 ```
+
+Then create the labels once, before the first pull request: **Actions → Labels →
+Run workflow**, or `gh workflow run labels.yml` from the repository. Dependabot
+opens its first pull requests within minutes, and the `PR labels` workflow adds
+labels to every pull request from its title; both need the labels to exist.
 
 **2. Clone it** (skip if you used `--clone`). If you use several GitHub accounts
 through SSH host aliases, clone with the alias, for example
@@ -156,13 +161,14 @@ yourself. All work happens on topic branches:
 
 ```bash
 git switch -c feat/initial-app        # all work happens on topic branches
-git push origin develop:main          # optional: create main by hand (allowed while it does not exist)
 ```
 
 The workflow never touches an existing `main` and can be deleted afterwards
 (it only prints a notice once `main` exists). If it fails, a repository or
-organisation policy probably forbids workflows from creating branches: use the
-manual command above, or **Branches → New branch** on GitHub.
+organisation policy probably forbids workflows from creating branches: create
+it yourself with **Branches → New branch** on GitHub, or
+`git push origin develop:main` (the `pre-push` hook allows it while `main` does
+not exist yet).
 
 **5. Initialise Flutter** — this is deliberately manual; you choose the
 organisation, the name and the platforms:
@@ -254,11 +260,11 @@ steps below. The complete reference with every value is in
 ```mermaid
 flowchart TD
     B1["Repository created from the template<br/>(develop, the default branch)"] --> B2["Bootstrap main workflow creates main<br/>(starts by itself on the first commit)"]
-    B2 --> B3["Topic branch: flutter create, pin, replace files"]
+    B2 --> B6["Run the Labels workflow once<br/>(before the first pull requests)"]
+    B6 --> B3["Topic branch: flutter create, pin, replace files"]
     B3 --> B4["Pull request into develop<br/>CI and staging builds run"]
     B4 --> B5["Settings: General, Actions, Code security"]
-    B5 --> B6["Run the Labels workflow once"]
-    B6 --> B7["Import the three rulesets"]
+    B5 --> B7["Import the three rulesets"]
     B7 --> B8["Release pull request develop to main<br/>production build and GitHub Release"]
 ```
 
