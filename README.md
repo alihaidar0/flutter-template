@@ -194,7 +194,20 @@ writes `environment: flutter: <version>` to `pubspec.yaml` and refreshes
 `pubspec.lock`, so CI and the builds use exactly what you develop with
 ([section 9](#9-versions-the-template-follows-the-newest-apps-freeze)).
 
-**7. Replace the template files** listed in [2.4](#24-what-to-change-in-the-new-app).
+**7. Write the app's README and replace the other template files** listed in
+[2.4](#24-what-to-change-in-the-new-app). The README is generated for you:
+
+```bash
+scripts/init-readme.sh --description "One or two sentences about what the app does."
+```
+
+It overwrites this guide with a short README for your app: the title (from the
+repository name, `--name` overrides it), your description, the CI, Build and License
+badges, the platforms `flutter create` made, a Stack table (Flutter, Dart, dev image,
+Node, pnpm, Husky and commitlint, read from the project), the template release you
+started from, and the license line. It refuses to overwrite a README that is no
+longer this guide unless you pass `--force`; run it again after `scripts/pin-image.sh`
+if you ran it before, so the Stack table shows the pinned versions.
 
 **8. Commit and push** the scaffold on the topic branch, then open a pull request
 **into `develop`**:
@@ -229,7 +242,7 @@ fixes: [section 8](#8-run-on-your-host-emulator-and-browser).
 | `.github/CODEOWNERS` | Replace `@alihaidar0` with your username or team |
 | `.github/dependabot.yml` | Change the `assignees` to you; **uncomment** the `pub` and `docker-compose` blocks (after `flutter create` and `scripts/pin-image.sh`) |
 | `LICENSE` | Replace with your license and copyright holder |
-| `README.md` | Replace with your app's README (this guide describes the template) |
+| `README.md` | Run `scripts/init-readme.sh` (step 7 above) to replace this guide with your app's README, then extend it |
 | `SECURITY.md`, `CONTRIBUTING.md` | Rewrite for your project; they describe the template |
 | `CHANGELOG.md` | **Delete** — your changelog is the GitHub Releases page ([section 7](#73-releases-and-the-changelog)) |
 | `.env.example` | Replace the sample keys with the ones your app needs (never commit a real `.env`) |
@@ -240,7 +253,7 @@ fixes: [section 8](#8-run-on-your-host-emulator-and-browser).
 | `.github/workflows/image-contract.yml`, `.github/scripts/check-image-contract.sh`, the `release` job of `release.yml`, the `template-guard` job of `ci.yml` | Inert in a project (they only run in the template); delete them if you like |
 | `.github/workflows/bootstrap-main.yml` | Creates `main` from `develop` once; delete it after `main` exists (it then only prints a notice) |
 | `docs/` | Keep as a reference or delete |
-| Template version | Note which template release you started from (the newest on the [template's Releases page](https://github.com/alihaidar0/flutter-template/releases) on the day you created the app, for example `v2026.10.04`) in your app's README. Later, that page shows what changed since then ([section 7.3](#73-releases-and-the-changelog)) |
+| Template version | `scripts/init-readme.sh` writes the template release you started from into your app's README (the newest on the [template's Releases page](https://github.com/alihaidar0/flutter-template/releases); if you run it later, pass the one from the day you created the app, for example `--template-release v2026.10.04`). Later, that page shows what changed since then ([section 7.3](#73-releases-and-the-changelog)) |
 | `lib/`, `test/`, `pubspec.yaml`, `android/`, `ios/`, `web/` | Yours — created by `flutter create`; add packages with `flutter pub add` |
 
 Nothing else needs editing: the workflows, hooks, Dev Container and VS Code
@@ -912,6 +925,7 @@ flutter-template/
 ├── scripts/
 │   ├── connect-emulator.sh           ← connects adb to the host emulator
 │   ├── entrypoint.dev.sh             ← fixes hook permissions and volume ownership on start
+│   ├── init-readme.sh                ← replaces this guide with the README of an app
 │   ├── pin-image.sh                  ← freezes the image and Flutter version of an app
 │   └── welcome.sh                    ← banner, hook self-heal, SSH alias, adb connect
 ├── .editorconfig · .env.example · .gitattributes · .gitignore
@@ -928,7 +942,7 @@ flutter-template/
 | --- | --- |
 | `.devcontainer/devcontainer.json` | Dev container config: pre-built image, forwards port 8080, installs extensions, declares Codespaces host requirements |
 | `docker-compose.yml` | Starts the container, mounts the project and named volumes, resolves the host gateway |
-| `scripts/*.sh` | Entrypoint, banner and hook self-heal, emulator connection, image pinning |
+| `scripts/*.sh` | Entrypoint, banner and hook self-heal, emulator connection, image pinning, app README generation |
 | `.husky/*`, `commitlint.config.mjs` | The git hooks and the commit rules |
 | `package.json`, `pnpm-lock.yaml` | Husky + commitlint only — no app dependencies; Node ≥ 24; pnpm equal to the version the image pre-caches |
 | `.github/workflows/*` | CI, builds, releases, labels (synced and set from the PR title), the weekly image contract check |

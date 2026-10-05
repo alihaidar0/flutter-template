@@ -27,6 +27,7 @@
       "extensions": [
         // Flutter & Dart (the Dart/Flutter extensions come from the image)
         "pflannery.vscode-versionlens",
+        "DiemasMichiels.emulate",
 
         // Git & GitHub
         "eamodio.gitlens",
