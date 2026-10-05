@@ -107,7 +107,7 @@ On Windows, start the agent once: see [Git and SSH](#git-and-ssh).
 flowchart TD
     A["1. Use this template on GitHub<br/>(new repository, develop only)"] --> B["2. Clone to your machine"]
     B --> C["3. Open in VS Code, Reopen in Container<br/>(image pull, hooks installed automatically)"]
-    C --> D["4. Create main, then a topic branch"]
+    C --> D["4. Topic branch<br/>(main is created automatically)"]
     D --> E["5. flutter create in the container terminal"]
     E --> F["6. scripts/pin-image.sh<br/>(freeze image and Flutter version)"]
     F --> G["7. Replace template files<br/>(checklist in 2.4)"]
@@ -145,19 +145,24 @@ flowchart LR
 
 The terminal banner shows the next steps for the current state of the project.
 
-**4. Create `main` and a topic branch.** The template's default branch is
-`develop`, so the new repository starts with `develop` (the integration branch
-and the default branch). Create `main`, the release branch, from it once, then
-work on topic branches. In the container terminal:
+**4. Start a topic branch; `main` is created for you.** The template's default
+branch is `develop`, so the new repository starts with `develop` (the
+integration branch and the default branch) and no `main`. The **Bootstrap main**
+workflow creates `main`, the release branch, from `develop` the first time it is
+missing. It starts by itself on the repository's first commit, so `main` appears
+within a minute of **Use this template** (check **Actions → Bootstrap main**; if it
+did not run, start it with **Run workflow**). You can also create the branch
+yourself. All work happens on topic branches:
 
 ```bash
-git push origin develop:main          # creates main (allowed once: it does not exist yet)
 git switch -c feat/initial-app        # all work happens on topic branches
+git push origin develop:main          # optional: create main by hand (allowed while it does not exist)
 ```
 
-If your repository shows `main` as its only branch instead, swap the names:
-create `develop` from it and set `develop` as the default branch in the GitHub
-settings ([section 3.2](#32-settings-to-apply-settings-tab)).
+The workflow never touches an existing `main` and can be deleted afterwards
+(it only prints a notice once `main` exists). If it fails, a repository or
+organisation policy probably forbids workflows from creating branches: use the
+manual command above, or **Branches → New branch** on GitHub.
 
 **5. Initialise Flutter** — this is deliberately manual; you choose the
 organisation, the name and the platforms:
@@ -227,6 +232,7 @@ fixes: [section 8](#8-run-on-your-host-emulator-and-browser).
 | `package.json` `name` | Optional: rename from `flutter-template` |
 | `scripts/welcome.sh` | Optional: change the banner title and link |
 | `.github/workflows/image-contract.yml`, `.github/scripts/check-image-contract.sh`, the `release` job of `release.yml`, the `template-guard` job of `ci.yml` | Inert in a project (they only run in the template); delete them if you like |
+| `.github/workflows/bootstrap-main.yml` | Creates `main` from `develop` once; delete it after `main` exists (it then only prints a notice) |
 | `docs/` | Keep as a reference or delete |
 | Template version | Note which template release you started from (the newest on the [template's Releases page](https://github.com/alihaidar0/flutter-template/releases) on the day you created the app, for example `v2026.10.04`) in your app's README. Later, that page shows what changed since then ([section 7.3](#73-releases-and-the-changelog)) |
 | `lib/`, `test/`, `pubspec.yaml`, `android/`, `ios/`, `web/` | Yours — created by `flutter create`; add packages with `flutter pub add` |
@@ -247,7 +253,7 @@ steps below. The complete reference with every value is in
 
 ```mermaid
 flowchart TD
-    B1["Repository created from the template<br/>(develop, the default branch)"] --> B2["Create and push main"]
+    B1["Repository created from the template<br/>(develop, the default branch)"] --> B2["Bootstrap main workflow creates main<br/>(starts by itself on the first commit)"]
     B2 --> B3["Topic branch: flutter create, pin, replace files"]
     B3 --> B4["Pull request into develop<br/>CI and staging builds run"]
     B4 --> B5["Settings: General, Actions, Code security"]
@@ -872,6 +878,7 @@ flutter-template/
 │   ├── scripts/
 │   │   └── check-image-contract.sh   ← compares the template with the dev image
 │   ├── workflows/
+│   │   ├── bootstrap-main.yml        ← creates main from develop in a new project (never in the template)
 │   │   ├── build.yml                 ← staging (PR → develop) and production (PR/merge → main) builds
 │   │   ├── ci.yml                    ← pull request validation → "CI passed"
 │   │   ├── image-contract.yml        ← weekly template ↔ image check (template repo only)
