@@ -242,6 +242,15 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Fixed
 
+- CI and builds no longer fail at job setup when a repository turns on
+  **Require actions to be pinned to a full-length commit SHA**. That setting
+  also covers the actions called inside a composite action, and the third-party
+  Flutter setup action called `actions/cache` by tag. The workflows now use a
+  local `.github/actions/setup-flutter` action that resolves the stable
+  release from Google's release manifest, checks the SDK archive against the
+  published SHA-256 and caches the SDK and the pub cache with a SHA-pinned
+  `actions/cache` (Dependabot watches it). The third-party action is removed,
+  so drop `subosito/flutter-action@*` from a project's allowed actions.
 - `git push` from the dev container no longer authenticates as the wrong
   GitHub account when the forwarded ssh-agent holds keys for several accounts.
   `welcome.sh` now runs the new `scripts/pin-ssh-key.sh`, which finds the key

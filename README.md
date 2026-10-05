@@ -289,7 +289,7 @@ flowchart TD
 | General | Template repository | **Off** (on only in `flutter-template` itself) |
 | General | Merge commits / squash / rebase | **On** / **Off** / **Off** |
 | General | Always suggest updating branches · auto-merge · delete head branches | On · On · On |
-| Actions → General | Allowed actions | GitHub-created, plus `subosito/flutter-action@*`, `raven-actions/actionlint@*`, `zizmorcore/zizmor-action@*`, `google/osv-scanner-action/*` |
+| Actions → General | Allowed actions | GitHub-created, plus `raven-actions/actionlint@*`, `zizmorcore/zizmor-action@*`, `google/osv-scanner-action/*` |
 | Actions → General | Require actions pinned to a full commit SHA | **On** |
 | Actions → General | Workflow permissions | Read repository contents; Actions may **not** create or approve pull requests |
 | Actions → General | Fork pull request workflows | Require approval; no secrets or write tokens to forks |
@@ -930,6 +930,8 @@ flutter-template/
 ├── .devcontainer/
 │   └── devcontainer.json             ← VS Code dev container config
 ├── .github/
+│   ├── actions/
+│   │   └── setup-flutter/            ← installs Flutter in CI (checksum verified, cached, SHA-pinned)
 │   ├── ISSUE_TEMPLATE/               ← bug report and feature request forms
 │   ├── rulesets/                     ← importable rulesets: main, develop, v* tags
 │   ├── scripts/
@@ -947,7 +949,8 @@ flutter-template/
 │   ├── PULL_REQUEST_TEMPLATE.md
 │   ├── dependabot.yml                ← Actions + npm (pub and docker-compose for projects), PRs → develop
 │   ├── labels.yml
-│   └── release.yml                   ← release-notes categories (by PR label)
+│   ├── release.yml                   ← release-notes categories (by PR label)
+│   └── zizmor.yml                    ← workflow security linter settings
 ├── .husky/
 │   ├── commit-msg                    ← Conventional Commits
 │   ├── pre-commit                    ← format check of staged Dart files

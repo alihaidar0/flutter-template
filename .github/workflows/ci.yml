@@ -305,11 +305,9 @@ jobs:
           persist-credentials: false
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        uses: ./.github/actions/setup-flutter
         with:
-          channel: stable
           flutter-version: ${{ needs.detect.outputs.flutter_version }}
-          cache: true
 
       - run: dart format --set-exit-if-changed .
 
@@ -328,11 +326,9 @@ jobs:
           persist-credentials: false
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        uses: ./.github/actions/setup-flutter
         with:
-          channel: stable
           flutter-version: ${{ needs.detect.outputs.flutter_version }}
-          cache: true
 
       # Fails if pubspec.lock does not match pubspec.yaml, so CI never silently
       # resolves different package versions than the ones committed.
@@ -356,11 +352,9 @@ jobs:
           persist-credentials: false
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        uses: ./.github/actions/setup-flutter
         with:
-          channel: stable
           flutter-version: ${{ needs.detect.outputs.flutter_version }}
-          cache: true
 
       # Fails if pubspec.lock does not match pubspec.yaml, so CI never silently
       # resolves different package versions than the ones committed.
@@ -418,11 +412,9 @@ jobs:
           persist-credentials: false
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        uses: ./.github/actions/setup-flutter
         with:
-          channel: stable
           flutter-version: ${{ needs.detect.outputs.flutter_version }}
-          cache: true
 
       - run: flutter doctor -v
 

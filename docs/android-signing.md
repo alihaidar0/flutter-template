@@ -98,8 +98,7 @@ request can never read them.
 Add this job next to `build` in your project's `.github/workflows/build.yml`. It runs
 only for pushes to `main` (the merged production release), is the only job that uses the
 environment, and uploads a signed bundle next to the debug-signed one. Copy the
-`Checkout`, `Set up Flutter` and `flutter pub get` steps, with their pinned SHAs, from
-the `build` job above it.
+`Checkout`, `Set up Flutter` and `flutter pub get` steps from the `build` job above it.
 
 ```yaml
   build-android-signed:
