@@ -23,6 +23,10 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   the project, the template release it started from and the license line). It
   refuses to overwrite a README that is no longer the guide unless `--force` is
   given, and the `welcome.sh` banner lists it as step 3.
+- `setup-flutter-test.yml`: a smoke test of the local `setup-flutter` action
+  on Linux and macOS (newest stable, a `3.x` line and an exact version). It runs
+  only when the action or the workflow changes, and on demand, so it is not
+  part of `CI passed`.
 - `bootstrap-main.yml`: a repository created from the template starts with
   only the default branch, `develop`. This workflow creates `main` from it the
   first time it is missing (it starts on the repository's first commit, and again
@@ -250,7 +254,8 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   release from Google's release manifest, checks the SDK archive against the
   published SHA-256 and caches the SDK and the pub cache with a SHA-pinned
   `actions/cache` (Dependabot watches it). The third-party action is removed,
-  so drop `subosito/flutter-action@*` from a project's allowed actions.
+  so drop `subosito/flutter-action@*` from a project's allowed actions. Its
+  downloads accept only HTTPS (also across redirects) and have a time limit.
 - `git push` from the dev container no longer authenticates as the wrong
   GitHub account when the forwarded ssh-agent holds keys for several accounts.
   `welcome.sh` now runs the new `scripts/pin-ssh-key.sh`, which finds the key
