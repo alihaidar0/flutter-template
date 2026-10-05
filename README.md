@@ -270,7 +270,7 @@ flowchart TD
 | General | Template repository | **Off** (on only in `flutter-template` itself) |
 | General | Merge commits / squash / rebase | **On** / **Off** / **Off** |
 | General | Always suggest updating branches · auto-merge · delete head branches | On · On · On |
-| Actions → General | Allowed actions | GitHub-created, plus `subosito/flutter-action@*`, `EndBug/label-sync@*`, `raven-actions/actionlint@*`, `zizmorcore/zizmor-action@*`, `google/osv-scanner-action/*` |
+| Actions → General | Allowed actions | GitHub-created, plus `subosito/flutter-action@*`, `raven-actions/actionlint@*`, `zizmorcore/zizmor-action@*`, `google/osv-scanner-action/*` |
 | Actions → General | Require actions pinned to a full commit SHA | **On** |
 | Actions → General | Workflow permissions | Read repository contents; Actions may **not** create or approve pull requests |
 | Actions → General | Fork pull request workflows | Require approval; no secrets or write tokens to forks |

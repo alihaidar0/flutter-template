@@ -51,7 +51,7 @@ The default branch is `develop`, the integration branch, so every automatic pull
 | Actions permissions | Allow `<your user>`, and select non-`<your user>`, actions and reusable workflows |
 | Allow actions created by GitHub | On |
 | Allow Marketplace actions by verified creators | Off |
-| Allowed actions (one per line) | `subosito/flutter-action@*`, `EndBug/label-sync@*`, `raven-actions/actionlint@*`, `zizmorcore/zizmor-action@*`, `google/osv-scanner-action/*` |
+| Allowed actions (one per line) | `subosito/flutter-action@*`, `raven-actions/actionlint@*`, `zizmorcore/zizmor-action@*`, `google/osv-scanner-action/*` |
 | Require actions to be pinned to a full-length commit SHA | **On** |
 | Artifact and log retention | 30 days |
 | Fork pull request workflows | Require approval for all external contributors |
