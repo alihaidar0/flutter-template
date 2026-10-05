@@ -17,7 +17,7 @@
 
 ## Breaking change
 
-- [ ] This change forces projects generated from the template to adapt (use a `feat!:` or `fix!:` commit type and a `BREAKING CHANGE:` footer, and add the `breaking change` label)
+- [ ] This change forces projects generated from the template to adapt (use a `feat!:` or `fix!:` commit type and a `BREAKING CHANGE:` footer; the `breaking change` label is added automatically)
 
 ## Checklist
 
@@ -29,7 +29,7 @@
 - [ ] New or updated GitHub Actions are pinned to a full commit SHA with a `# vX.Y.Z` comment, and any pinned version change is named in the PR title (see [CONTRIBUTING.md](../CONTRIBUTING.md))
 - [ ] Anything that must match the `flutter-devcontainer` image (pnpm and Node versions, aliases, image name) still does, or the image change is linked below
 - [ ] `README.md` and `CHANGELOG.md` describe the change where users would notice it
-- [ ] Labels are set (they drive the release notes), or `skip-changelog` if this should not appear in them
+- [ ] The title is a Conventional Commit (labels are added from it and drive the release notes), or `skip-changelog` if this should not appear in them
 
 ## Related issues
 
