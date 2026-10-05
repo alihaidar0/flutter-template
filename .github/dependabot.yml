@@ -8,9 +8,12 @@ version: 2
 updates:
   # ── GitHub Actions ──────────────────────────────────────────────────────
   # Actions are pinned to full commit SHAs; Dependabot rewrites the SHA and the
-  # trailing "# vX.Y.Z" comment together.
+  # trailing "# vX.Y.Z" comment together. The second directory is the local
+  # setup-flutter action, whose own `uses:` lines are not in a workflow file.
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      - "/"
+      - "/.github/actions/setup-flutter"
     schedule:
       interval: "weekly"
       day: "monday"
