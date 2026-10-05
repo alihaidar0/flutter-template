@@ -17,6 +17,12 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- `bootstrap-main.yml`: a repository created from the template starts with
+  only the default branch, `develop`. This workflow creates `main` from it the
+  first time it is missing (it starts on the repository's first commit, and again
+  on every push to `develop` or on demand as a safety net), never
+  touches an existing `main`, and never runs in the template repository itself.
+  It needs only `contents: write` on its one job and is not part of `CI passed`.
 - `pr-labels.yml`: adds labels to a pull request from its Conventional Commit
   title (`feat` → `feature`, `fix` → `bug`, `docs` → `documentation`, `ci` →
   `ci`, `deps` scope → `dependencies`, `!` → `breaking change`, a
