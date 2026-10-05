@@ -23,8 +23,6 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   the project, the template release it started from and the license line). It
   refuses to overwrite a README that is no longer the guide unless `--force` is
   given, and the `welcome.sh` banner lists it as step 3.
-- The Emulator VS Code extension (`DiemasMichiels.emulate`) is installed in the
-  dev container.
 - `bootstrap-main.yml`: a repository created from the template starts with
   only the default branch, `develop`. This workflow creates `main` from it the
   first time it is missing (it starts on the repository's first commit, and again
