@@ -943,7 +943,8 @@ flutter-template/
 │   │   ├── image-contract.yml        ← weekly template ↔ image check (template repo only)
 │   │   ├── labels.yml                ← syncs labels.yml to GitHub
 │   │   ├── pr-labels.yml             ← labels a pull request from its title
-│   │   └── release.yml               ← GitHub Releases with generated notes
+│   │   ├── release.yml               ← GitHub Releases with generated notes
+│   │   └── setup-flutter-test.yml    ← smoke test of the setup-flutter action (runs only when it changes)
 │   ├── CODE_OF_CONDUCT.md
 │   ├── CODEOWNERS
 │   ├── PULL_REQUEST_TEMPLATE.md

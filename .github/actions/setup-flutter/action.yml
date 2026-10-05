@@ -5,8 +5,10 @@
 # to be pinned to a full-length commit SHA" also applies to the actions called
 # inside a composite action, and the popular setup action calls actions/cache
 # by tag, so job setup fails with that setting on. Here every action is pinned,
-# the SDK archive is checked against the SHA-256 that Google publishes in the
-# release manifest, and nothing else is downloaded.
+# the SDK archive is checked against the SHA-256 in Google's release manifest
+# (this catches a corrupted or truncated download; the manifest and the archive
+# come from the same host, so it does not defend against a compromised host),
+# and nothing else is downloaded.
 #
 # Linux and macOS runners only. Dependabot keeps the pinned action below up to
 # date (dependabot.yml lists this folder).
@@ -54,6 +56,7 @@ runs:
 
         manifest="$RUNNER_TEMP/flutter-releases.json"
         curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
+          --proto '=https' --proto-redir '=https' --max-time 60 \
           --output "$manifest" \
           "https://storage.googleapis.com/flutter_infra_release/releases/releases_${os}.json"
 
@@ -100,6 +103,7 @@ runs:
         set -euo pipefail
         archive="$RUNNER_TEMP/flutter-sdk-archive"
         curl --fail --silent --show-error --location --retry 3 --retry-all-errors \
+          --proto '=https' --proto-redir '=https' --max-time 900 \
           --output "$archive" "$ARCHIVE_URL"
 
         # Refuse an archive that does not match the published checksum.
