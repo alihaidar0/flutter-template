@@ -14,11 +14,11 @@ Out of scope:
 
 ## Branching and pull requests
 
-- `main` is stable and always usable as a template; `develop` is the integration branch and where Dependabot pull requests land.
+- `main` is the stable, released state; `develop` is the integration branch, the default branch (what "Use this template" copies) and where Dependabot pull requests land. Neither branch accepts direct pushes.
 - Work on a topic branch (`feat/…`, `fix/…`, `docs/…`, `ci/…`, `chore/…`, `deps/…`) and open the pull request against **`develop`**.
 - Only a `develop` → `main` pull request may target `main`.
 - Merge with a **merge commit**. Squash and rebase merging are disabled.
-- Fill in the [pull request template](.github/PULL_REQUEST_TEMPLATE.md) and set labels (they drive the release notes).
+- Fill in the [pull request template](.github/PULL_REQUEST_TEMPLATE.md) and use a Conventional Commit title: labels (they drive the release notes) are added automatically from it, and you can add more by hand.
 - The **CI passed** check must be green before merging.
 
 The full branch model, repository settings and rulesets are described in [`docs/github-setup.md`](docs/github-setup.md).

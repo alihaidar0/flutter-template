@@ -105,9 +105,9 @@ On Windows, start the agent once: see [Git and SSH](#git-and-ssh).
 
 ```mermaid
 flowchart TD
-    A["1. Use this template on GitHub<br/>(new repository, main only)"] --> B["2. Clone to your machine"]
+    A["1. Use this template on GitHub<br/>(new repository, develop only)"] --> B["2. Clone to your machine"]
     B --> C["3. Open in VS Code, Reopen in Container<br/>(image pull, hooks installed automatically)"]
-    C --> D["4. Create develop, then a topic branch"]
+    C --> D["4. Create main, then a topic branch"]
     D --> E["5. flutter create in the container terminal"]
     E --> F["6. scripts/pin-image.sh<br/>(freeze image and Flutter version)"]
     F --> G["7. Replace template files<br/>(checklist in 2.4)"]
@@ -145,14 +145,19 @@ flowchart LR
 
 The terminal banner shows the next steps for the current state of the project.
 
-**4. Create the long-lived branches and a topic branch.** In the container
-terminal:
+**4. Create `main` and a topic branch.** The template's default branch is
+`develop`, so the new repository starts with `develop` (the integration branch
+and the default branch). Create `main`, the release branch, from it once, then
+work on topic branches. In the container terminal:
 
 ```bash
-git switch -c develop
-git push -u origin develop            # develop is the integration branch
+git push origin develop:main          # creates main (allowed once: it does not exist yet)
 git switch -c feat/initial-app        # all work happens on topic branches
 ```
+
+If your repository shows `main` as its only branch instead, swap the names:
+create `develop` from it and set `develop` as the default branch in the GitHub
+settings ([section 3.2](#32-settings-to-apply-settings-tab)).
 
 **5. Initialise Flutter** — this is deliberately manual; you choose the
 organisation, the name and the platforms:
@@ -242,7 +247,7 @@ steps below. The complete reference with every value is in
 
 ```mermaid
 flowchart TD
-    B1["Repository created from the template<br/>(main)"] --> B2["Create and push develop"]
+    B1["Repository created from the template<br/>(develop, the default branch)"] --> B2["Create and push main"]
     B2 --> B3["Topic branch: flutter create, pin, replace files"]
     B3 --> B4["Pull request into develop<br/>CI and staging builds run"]
     B4 --> B5["Settings: General, Actions, Code security"]
@@ -255,7 +260,7 @@ flowchart TD
 
 | Where | Setting | Value |
 | --- | --- | --- |
-| General | Default branch | `main` |
+| General | Default branch | `develop` (so Dependabot security updates and new pull requests target it) |
 | General | Template repository | **Off** (on only in `flutter-template` itself) |
 | General | Merge commits / squash / rebase | **On** / **Off** / **Off** |
 | General | Always suggest updating branches · auto-merge · delete head branches | On · On · On |
@@ -298,8 +303,9 @@ done
 - A pull request into `main` from any branch other than `develop` fails **Verify
   source branch**. Rulesets cannot restrict a pull request's source branch, so
   this is enforced in `ci.yml` and made mandatory by the required **CI passed** check.
-- Dependabot *security* updates are raised against the default branch (`main`);
-  re-target those pull requests to `develop`.
+- Dependabot *security* updates are raised against the default branch, which is
+  `develop`, so they arrive like every other update (a repository whose default
+  branch is still `main` must re-target them to `develop` by hand).
 
 ### 3.4 Check that it works
 
@@ -334,8 +340,10 @@ gitGraph
     merge develop id: "release PR (production build)" tag: "v1.0.0"
 ```
 
-- **`main`** is stable and releasable. **`develop`** is the integration branch;
-  Dependabot pull requests land there.
+- **`main`** is stable and releasable. **`develop`** is the integration branch
+  and the **default branch**: Dependabot pull requests (version and security
+  updates) and new pull requests land there. Nobody pushes to either branch
+  directly.
 - Work on a topic branch named `feat/…`, `fix/…`, `docs/…`, `ci/…`, `chore/…` or
   `deps/…` and open the pull request **against `develop`**.
 - Only a `develop` → `main` pull request may target `main`: the **release PR**.
@@ -344,7 +352,10 @@ gitGraph
   conflict.
 - Nobody pushes to `develop` or `main` directly; the rulesets enforce it and the
   `pre-push` hook is a local convenience.
-- Fill in the pull request template and set labels: they group the release notes.
+- Fill in the pull request template and give the PR a Conventional Commit title:
+  the `PR labels` workflow adds the labels that group the release notes
+  (`feat` → `feature`, `fix` → `bug`, `docs` → `documentation`, `ci` → `ci`,
+  `deps` scope → `dependencies`, `!` → `breaking change`). Add any extra label by hand.
 
 ```bash
 git switch develop && git pull --ff-only
@@ -407,7 +418,7 @@ flowchart LR
 | Working tree and `.git` | the same folder (bind mount) | the same folder |
 | `user.name` / `user.email` | the repository-local setting, otherwise your host `~/.gitconfig` (copied in by VS Code) | the same |
 | Authentication | your host **ssh-agent**, forwarded by VS Code; no private key enters the container | your own SSH keys or credential manager |
-| Hooks | **run** (commit-msg, pre-commit, pre-push) | **skipped with a notice**, except the push-to-`main` block; CI runs the same checks |
+| Hooks | **run** (commit-msg, pre-commit, pre-push) | **skipped with a notice**, except the push-to-`main`/`develop` block; CI runs the same checks |
 
 ### Git and SSH
 
@@ -465,7 +476,7 @@ commit and push of a new project are already checked.
 | --- | --- | --- |
 | `commit-msg` | every `git commit` | commitlint: the message must be a Conventional Commit |
 | `pre-commit` | every `git commit` | `dart format --set-exit-if-changed` on the **staged Dart files only** — fast; skipped until `pubspec.yaml` exists |
-| `pre-push` | every `git push` | blocks pushing to `main`; runs `flutter analyze` before commits leave your machine (skipped without `pubspec.yaml`, and when only branches are deleted) |
+| `pre-push` | every `git push` | blocks pushing to `main` and `develop`; runs `flutter analyze` before commits leave your machine (skipped without `pubspec.yaml`, and when only branches are deleted) |
 
 ```mermaid
 flowchart TD
@@ -489,7 +500,8 @@ flowchart TD
 - The toolchain-dependent hooks need Node, pnpm and Flutter, which live in the
   container; on the host they skip with a notice, and **CI re-checks the commit
   messages, formatting and analysis of every pull request**, so nothing slips
-  through. The block on pushing to `main` works everywhere.
+  through. The block on pushing to `main` and `develop` works everywhere (it
+  applies once the branch exists on the remote, so creating it still works).
 - Hooks are small shell scripts in `.husky/`; `entrypoint.dev.sh` restores their
   execute bit on every container start because Windows strips it.
 - A hook is a local convenience; the GitHub rulesets and **CI passed** are the real gate.
@@ -609,8 +621,11 @@ flowchart LR
 
 - **In a project** the tag is the `pubspec.yaml` version without the build number
   (`version: 1.4.0+7` releases `v1.4.0`). A version is released once; a suffix
-  (`2.0.0-beta.1`) marks a pre-release. Label pull requests (`feature`, `bug`,
-  `breaking change`, `documentation`, …); `skip-changelog` leaves one out.
+  (`2.0.0-beta.1`) marks a pre-release. Labels (`feature`, `bug`,
+  `breaking change`, `documentation`, …) are added automatically from the pull
+  request title by `pr-labels.yml` (a `develop` → `main` promotion gets
+  `skip-changelog`); add or remove one by hand to override, and use
+  `skip-changelog` to leave a pull request out.
 - **In the template** the tag is the calendar date (`vYYYY.MM.DD`).
   An app created from the template does not carry its history, so the tag is not
   recorded for you: to see what changed in the toolchain (hooks, workflows,
@@ -861,6 +876,7 @@ flutter-template/
 │   │   ├── ci.yml                    ← pull request validation → "CI passed"
 │   │   ├── image-contract.yml        ← weekly template ↔ image check (template repo only)
 │   │   ├── labels.yml                ← syncs labels.yml to GitHub
+│   │   ├── pr-labels.yml             ← labels a pull request from its title
 │   │   └── release.yml               ← GitHub Releases with generated notes
 │   ├── CODE_OF_CONDUCT.md
 │   ├── CODEOWNERS
@@ -871,7 +887,7 @@ flutter-template/
 ├── .husky/
 │   ├── commit-msg                    ← Conventional Commits
 │   ├── pre-commit                    ← format check of staged Dart files
-│   └── pre-push                      ← blocks main, runs flutter analyze
+│   └── pre-push                      ← blocks main and develop, runs flutter analyze
 ├── .vscode/
 │   ├── extensions.json               ← recommends Dev Containers
 │   ├── launch.json                   ← host emulator, host browser, both
@@ -902,7 +918,7 @@ flutter-template/
 | `scripts/*.sh` | Entrypoint, banner and hook self-heal, emulator connection, image pinning |
 | `.husky/*`, `commitlint.config.mjs` | The git hooks and the commit rules |
 | `package.json`, `pnpm-lock.yaml` | Husky + commitlint only — no app dependencies; Node ≥ 24; pnpm equal to the version the image pre-caches |
-| `.github/workflows/*` | CI, builds, releases, labels, the weekly image contract check |
+| `.github/workflows/*` | CI, builds, releases, labels (synced and set from the PR title), the weekly image contract check |
 | `.github/rulesets/`, `.github/dependabot.yml`, `.github/labels.yml`, `.github/release.yml`, `.github/CODEOWNERS` | Governance as files |
 | `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/`, `.github/CODE_OF_CONDUCT.md`, `SECURITY.md`, `CONTRIBUTING.md` | Community files |
 | `docs/` | GitHub settings guide and Android signing guide |

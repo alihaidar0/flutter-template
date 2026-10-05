@@ -17,7 +17,8 @@ feat/*  fix/*  docs/*  ci/*  chore/*  deps/*
   build.yml (APK, AAB, web artifacts) + release.yml (GitHub Release)
 ```
 
-- Nobody pushes to `develop` or `main` directly (rulesets enforce it; the `pre-push` hook is a local convenience).
+- Nobody pushes to `develop` or `main` directly (rulesets enforce it; the `pre-push` hook blocks both locally as a convenience).
+- `develop` is the default branch; only a pull request from `develop` may target `main` (the **Verify source branch** job of `CI passed`).
 - Every change goes on a topic branch and opens a pull request against `develop`.
 - When `develop` is verified, one pull request `develop` → `main` promotes it.
 - Both branches use **merge commits** (no squash, no rebase). Squashing into `main` rewrites `develop`'s commits and makes the next promotion conflict.
@@ -28,7 +29,7 @@ A pull request into `main` from any branch other than `develop` fails the **Veri
 
 | Setting | Value |
 | --- | --- |
-| Default branch | `main` |
+| Default branch | `develop` |
 | Template repository | **On** for `flutter-template` only (leave **Off** in projects created from it) |
 | Features | Issues on · Wikis off · Projects off · Discussions off |
 | Pull Requests → Allow merge commits | **On** (default message: pull request title and description) |
@@ -41,7 +42,7 @@ A pull request into `main` from any branch other than `develop` fails the **Veri
 
 For `flutter-template` also set a description, the website field if you have one, and these topics: `flutter`, `dart`, `android`, `firebase`, `docker`, `devcontainer`, `husky`, `commitlint`, `github-template`, `cicd`.
 
-The default branch stays `main`. Dependabot *version* updates already target `develop`; Dependabot *security* updates are raised against the default branch, so expect those pull requests against `main` and re-target them to `develop`.
+The default branch is `develop`, the integration branch, so every automatic pull request (Dependabot *version* and *security* updates) and every new pull request targets it by default, and `main` is reached only through the `develop` → `main` release pull request. A repository created from this template starts with the template's default branch (`develop`); create `main` from it once (section 6). Set the default branch under Settings → General → Default branch.
 
 ## 2. Settings → Actions → General
 
@@ -58,7 +59,7 @@ The default branch stays `main`. Dependabot *version* updates already target `de
 | Workflow permissions | **Read repository contents and packages permissions** |
 | Allow GitHub Actions to create and approve pull requests | Off |
 
-Every workflow also declares its own top-level `permissions:` block (`contents: read`, or none at all for `release.yml`); the jobs that need more request it explicitly: `release.yml` (`contents: write`) and `labels.yml` (`issues: write`).
+Every workflow also declares its own top-level `permissions:` block (`contents: read`, or none at all for `release.yml`); the jobs that need more request it explicitly: `release.yml` (`contents: write`), `labels.yml` (`issues: write`) and `pr-labels.yml` (`pull-requests: write`, to add labels from the pull request title; it needs the labels to exist, so run the **Labels** workflow once).
 
 Workflows run on an explicit runner image (`ubuntu-24.04`) rather than `ubuntu-latest`. GitHub moves `ubuntu-latest` to a new Ubuntu release on its own schedule, which changes the toolchain under every job at once. Moving to a newer image is a deliberate edit of the `runs-on:` lines once the build has been verified on it.
 
@@ -120,7 +121,7 @@ done
 
 ### The template repository
 
-1. Push `main`, then create `develop` from it and push that too.
+1. Push `main` and `develop` (both exist before the rulesets are imported), then make `develop` the default branch (section 1).
 2. Apply sections 1, 2 and 4.
 3. Run the **Labels** workflow once (Actions → Labels → Run workflow) to create every label.
 4. Import the three rulesets (section 5).
@@ -129,7 +130,7 @@ done
 
 ### Every project created from the template
 
-1. **Use this template** → Create a new repository. Leave **Include all branches** unchecked, then create `develop` from `main`: `git switch -c develop && git push -u origin develop`.
+1. **Use this template** → Create a new repository. Leave **Include all branches** unchecked: the new repository starts with one branch, the template's default (`develop`). Create `main` from it once: `git push origin develop:main` (the `pre-push` hook only blocks a branch that already exists on the remote). If your repository shows `main` instead, create `develop` from it and make `develop` the default branch.
 2. Update `.github/CODEOWNERS` with your username, and review `LICENSE`, `README.md`, `SECURITY.md` and `CONTRIBUTING.md`: they describe the template until you replace them. Delete `CHANGELOG.md`: your changelog is the GitHub Releases page, whose notes are generated from pull-request labels.
 3. Run `flutter create --org <your.org> .` in the container, then `flutter pub get` so `pubspec.lock` exists (CI switches to its full Tier 3 checks on the next pull request).
 4. Freeze the toolchain: run `scripts/pin-image.sh`. It pins the dev image in `docker-compose.yml` to the newest permanent `flutter-X.Y.Z.R` tag of your Flutter plus its digest and writes `environment: flutter: <version>` to `pubspec.yaml`, so CI and the builds use the same Flutter; it also refreshes `pubspec.lock`. Commit the three files.
