@@ -57,6 +57,13 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Changed
 
+- `labels.yml` syncs `.github/labels.yml` with the `gh` CLI (`gh label create
+  --force` per label, parsed with the runner's preinstalled `yq` and `jq`)
+  instead of the `EndBug/label-sync` action, which still declares Node 20 and
+  made every run print a deprecation warning. Behaviour is unchanged (labels
+  are created or updated, unlisted labels are left alone), one third-party
+  action is gone, and `EndBug/label-sync@*` is no longer needed in the allowed
+  actions list (repositories that already list it can leave it).
 - **`develop` is now the default branch** (set in the repository settings). Dependabot
   security updates, which always target the default branch, now arrive against
   `develop` like version updates, so nothing has to be re-targeted by hand;

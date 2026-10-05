@@ -35,8 +35,34 @@ jobs:
           sparse-checkout: .github/labels.yml
           persist-credentials: false
 
+      # Plain gh CLI instead of a third-party action: yq, jq and gh are
+      # preinstalled on the runner. `gh label create --force` creates a missing
+      # label and updates the colour and description of an existing one; labels
+      # that are not listed in the file are left alone.
       - name: Sync labels
-        uses: EndBug/label-sync@52074158190acb45f3077f9099fea818aa43f97a # v2.3.3
-        with:
-          config-file: .github/labels.yml
-          token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          count=0
+          while IFS= read -r label; do
+            name="$(jq -r '.name // ""' <<< "${label}")"
+            color="$(jq -r '.color // ""' <<< "${label}")"
+            description="$(jq -r '.description // ""' <<< "${label}")"
+
+            if [ -z "${name}" ] || [[ ! "${color}" =~ ^[0-9a-fA-F]{6}$ ]]; then
+              echo "::error file=.github/labels.yml::Invalid label entry (needs a name and a 6-digit hex colour): ${label}"
+              exit 1
+            fi
+
+            gh label create "${name}" --color "${color}" --description "${description}" --force
+            count=$((count + 1))
+          done < <(yq -o=json -I=0 '.[]' .github/labels.yml)
+
+          if [ "${count}" -eq 0 ]; then
+            echo "::error file=.github/labels.yml::No labels found in the file."
+            exit 1
+          fi
+          echo "Synced ${count} labels." >> "$GITHUB_STEP_SUMMARY"
