@@ -82,7 +82,7 @@
   color: "cccccc"
   description: "This issue or PR already exists elsewhere — see linked item"
 
-- name: "wont fix"
+- name: "wontfix"
   color: "ffffff"
   description: "Acknowledged but intentionally out of scope for this repo"
 

@@ -24,15 +24,16 @@ done
 # ── Static analysis before commits leave the machine ──────────────────────────
 # Skipped on a fresh template (no pubspec.yaml), when only deleting branches, and
 # outside the dev container (Flutter lives there; CI runs the analysis too).
+# --fatal-infos matches the CI analyze job, so info-level lints fail here first.
 in_container=0
 if [ -f /.dockerenv ] || [ -f /run/.containerenv ] || [ -n "${REMOTE_CONTAINERS:-}" ] || [ -n "${CODESPACES:-}" ]; then
   in_container=1
 fi
 if [ "$in_container" = 1 ] && [ "$pushing_commits" = 1 ] && [ -f "pubspec.yaml" ]; then
-  echo "Running flutter analyze before push..."
-  flutter analyze || {
+  echo "Running flutter analyze --fatal-infos before push..."
+  flutter analyze --fatal-infos || {
     echo ""
-    echo "✖ flutter analyze reported issues — fix them before pushing."
+    echo "✖ flutter analyze --fatal-infos reported issues — fix them before pushing."
     exit 1
   }
 fi
