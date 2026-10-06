@@ -28,9 +28,13 @@ on:
       - develop
       - main
 
+# One run per pull request at a time. A run that has already started finishes
+# (it only adds labels, so it is safe to complete); only a run still waiting is
+# replaced by the newest edit, so a quick title or description edit no longer
+# cancels a running job and leaves a red cancelled run behind.
 concurrency:
   group: pr-labels-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions: {}
 

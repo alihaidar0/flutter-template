@@ -262,6 +262,10 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Fixed
 
+- `pr-labels.yml` no longer cancels a run that has already started when the
+  pull request title or description is edited again; only a run still waiting
+  is replaced by the newest one, so editing a pull request right after opening
+  it no longer leaves a cancelled run with error annotations.
 - The **Format** job no longer fails the first pull request of a new app: files
   that `flutter create` writes under `android/`, `ios/`, `web/`, `macos/`,
   `linux/` and `windows/` (for example an iOS launch-image `README.md` without a
