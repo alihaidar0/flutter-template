@@ -105,7 +105,7 @@ On Windows, start the agent once: see [Git and SSH](#git-and-ssh).
 
 ```mermaid
 flowchart TD
-    A["1. Use this template on GitHub<br/>(new repository, develop only),<br/>then run the Labels workflow once"] --> B["2. Clone to your machine"]
+    A["1. Use this template on GitHub<br/>(new repository, develop only),<br/>labels are created automatically"] --> B["2. Clone to your machine"]
     B --> C["3. Open in VS Code, Reopen in Container<br/>(image pull, hooks installed automatically)"]
     C --> D["4. Topic branch<br/>(main is created automatically)"]
     D --> E["5. flutter create in the container terminal"]
@@ -126,10 +126,13 @@ leave **Include all branches** unchecked. With the GitHub CLI:
 gh repo create OWNER/my_app --template alihaidar0/flutter-template --private --clone
 ```
 
-Then create the labels once, before the first pull request: **Actions → Labels →
-Run workflow**, or `gh workflow run labels.yml` from the repository. Dependabot
-opens its first pull requests within minutes, and the `PR labels` workflow adds
-labels to every pull request from its title; both need the labels to exist.
+The repository's first commit contains `.github/labels.yml`, so the **Labels**
+workflow creates every label by itself on the first push. Dependabot opens its
+first pull requests within minutes, and the `PR labels` workflow adds labels to
+every pull request from its title; both need the labels to exist, so check
+**Actions → Labels** (or **Issues → Labels**) before the first pull request. Only
+if the labels are missing, run **Actions → Labels → Run workflow**, or
+`gh workflow run labels.yml` from the repository.
 
 **2. Clone it** (skip if you used `--clone`). If you use several GitHub accounts
 through SSH host aliases, clone with the alias, for example
@@ -182,6 +185,16 @@ flutter doctor -v                     # Xcode is not expected to be green on Lin
 `pubspec.lock`, `analysis_options.yaml`, `android/`, `ios/`, `web/`, `.metadata`);
 it changes none of the template's files. It generates no Linux, macOS or Windows
 folders because the image has no desktop toolchain.
+
+**Decide the application ID now, before the first commit.** The Android ID is
+permanent once the app is published. If the project name contains an underscore
+(the usual Dart style, `my_app`), `flutter create` gives Android
+`com.yourcompany.my_app` but iOS `com.yourcompany.myApp`, because an iOS bundle
+ID cannot contain an underscore. Give both platforms the same, underscore-free
+value (for example `com.yourcompany.myapp`): set `applicationId` in
+`android/app/build.gradle.kts`, and every `PRODUCT_BUNDLE_IDENTIFIER` in
+`ios/Runner.xcodeproj/project.pbxproj` (keep the `.RunnerTests` suffix on the
+test target). Leave the Android `namespace` as it is.
 
 **6. Freeze the toolchain:**
 
@@ -255,6 +268,7 @@ fixes: [section 8](#8-run-on-your-host-emulator-and-browser).
 | `docs/` | Keep as a reference or delete |
 | Template version | `scripts/init-readme.sh` writes the template release you started from into your app's README (the newest on the [template's Releases page](https://github.com/alihaidar0/flutter-template/releases); if you run it later, pass the one from the day you created the app, for example `--template-release v2026.10.04`). Later, that page shows what changed since then ([section 7.3](#73-releases-and-the-changelog)) |
 | `lib/`, `test/`, `pubspec.yaml`, `android/`, `ios/`, `web/` | Yours — created by `flutter create`; add packages with `flutter pub add` |
+| Application ID (`applicationId` in `android/app/build.gradle.kts`, `PRODUCT_BUNDLE_IDENTIFIER` in `ios/Runner.xcodeproj/project.pbxproj`) | Decide it before the first commit; with an underscore in the project name Android and iOS differ, so set both to the same underscore-free value (step 5 above). The Android ID cannot change after publishing |
 
 Nothing else needs editing: the workflows, hooks, Dev Container and VS Code
 configuration work unchanged in a project.
@@ -273,7 +287,7 @@ steps below. The complete reference with every value is in
 ```mermaid
 flowchart TD
     B1["Repository created from the template<br/>(develop, the default branch)"] --> B2["Bootstrap main workflow creates main<br/>(starts by itself on the first commit)"]
-    B2 --> B6["Run the Labels workflow once<br/>(before the first pull requests)"]
+    B2 --> B6["Check that the Labels workflow created the labels<br/>(run it manually only if they are missing)"]
     B6 --> B3["Topic branch: flutter create, pin, replace files"]
     B3 --> B4["Pull request into develop<br/>CI and staging builds run"]
     B4 --> B5["Settings: General, Actions, Code security"]
@@ -307,7 +321,7 @@ gh api repos/OWNER/REPO --method PATCH \
   -F allow_merge_commit=true -F allow_squash_merge=false -F allow_rebase_merge=false \
   -F allow_auto_merge=true -F delete_branch_on_merge=true \
   -F has_wiki=false -F has_projects=false -F has_discussions=false
-gh workflow run labels.yml                       # creates every label once
+gh label list --limit 50                         # the Labels workflow already created them; if empty: gh workflow run labels.yml
 for ruleset in main-protect develop-protect tags-protect; do
   gh api repos/OWNER/REPO/rulesets --method POST --input ".github/rulesets/$ruleset.json"
 done
@@ -539,7 +553,7 @@ commit and push of a new project are already checked.
 | --- | --- | --- |
 | `commit-msg` | every `git commit` | commitlint: the message must be a Conventional Commit |
 | `pre-commit` | every `git commit` | `dart format --set-exit-if-changed` on the **staged Dart files only** — fast; skipped until `pubspec.yaml` exists |
-| `pre-push` | every `git push` | blocks pushing to `main` and `develop`; runs `flutter analyze` before commits leave your machine (skipped without `pubspec.yaml`, and when only branches are deleted) |
+| `pre-push` | every `git push` | blocks pushing to `main` and `develop`; runs `flutter analyze --fatal-infos` (the same command as CI) before commits leave your machine (skipped without `pubspec.yaml`, and when only branches are deleted) |
 
 ```mermaid
 flowchart TD
@@ -555,7 +569,7 @@ flowchart TD
     OK --> PU["git push"]
     PU --> MN{"target is main?"}
     MN -- yes --> X3["push rejected"]
-    MN -- no --> AN["pre-push: flutter analyze clean?"]
+    MN -- no --> AN["pre-push: flutter analyze --fatal-infos clean?"]
     AN -- no --> X4["push rejected: fix the issues"]
     AN -- yes --> DONE["pushed, CI runs on the pull request"]
 ```
@@ -602,7 +616,9 @@ Repository checks (every tier):
 
 - **Verify source branch** — a pull request into `main` must come from `develop`.
 - **Lint** — ShellCheck for the scripts and hooks; actionlint and zizmor for the workflows.
-- **Format** — LF endings, no trailing whitespace, final newline.
+- **Format** — LF endings, no trailing whitespace, final newline (the last two
+  skip `android/`, `ios/`, `web/`, `macos/`, `linux/` and `windows/`, which
+  `flutter create` writes).
 - **Commit messages** — every commit of the pull request is a Conventional Commit.
 - **Node dependency audit** — `pnpm audit` on the lock file; high and critical fail.
 - **Template guard** — template repository only (blank canvas, executable scripts).
@@ -1091,7 +1107,9 @@ Run `dart format .` (or `fformat`), stage the files again and commit.
 
 ### Push rejected — `flutter analyze` reported issues
 
-Run `fanalyze`, fix what it reports and push again.
+Run `flutter analyze --fatal-infos` (the hook and CI use this flag, so info-level
+lints fail too; the `fanalyze` alias leaves it out), fix what it reports and push
+again.
 
 ### Git hooks do not run
 

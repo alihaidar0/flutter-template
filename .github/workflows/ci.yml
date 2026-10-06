@@ -167,16 +167,20 @@ jobs:
         with:
           persist-credentials: false
 
+      # The platform folders are written by `flutter create` (some of their files
+      # have no final newline), so only the line-ending check covers them; the
+      # whitespace and final-newline checks skip them.
       - name: Check line endings, trailing whitespace and final newline
         run: |
           status=0
+          generated=(':!android' ':!ios' ':!web' ':!macos' ':!linux' ':!windows')
 
           crlf=$(git ls-files --eol | awk '$1 == "i/crlf" || $1 == "i/mixed" { print $NF }')
           if [ -n "$crlf" ]; then
             echo "::error::CRLF line endings found (LF required):"; echo "$crlf"; status=1
           fi
 
-          trailing=$(git grep -nIE '[[:space:]]+$' -- . ':!*.md' || true)
+          trailing=$(git grep -nIE '[[:space:]]+$' -- . ':!*.md' "${generated[@]}" || true)
           if [ -n "$trailing" ]; then
             echo "::error::Trailing whitespace found:"; echo "$trailing"; status=1
           fi
@@ -186,7 +190,7 @@ jobs:
             if [ -s "$file" ] && grep -Iq . "$file" && [ "$(tail -c1 "$file" | wc -l)" -eq 0 ]; then
               missing="$missing$file"$'\n'
             fi
-          done < <(git ls-files -z)
+          done < <(git ls-files -z -- . "${generated[@]}")
           if [ -n "$missing" ]; then
             echo "::error::Missing final newline:"; printf '%s' "$missing"; status=1
           fi
