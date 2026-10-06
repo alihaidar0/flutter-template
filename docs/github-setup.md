@@ -59,7 +59,7 @@ The default branch is `develop`, the integration branch, so every automatic pull
 | Workflow permissions | **Read repository contents and packages permissions** |
 | Allow GitHub Actions to create and approve pull requests | Off |
 
-Every workflow also declares its own top-level `permissions:` block (`contents: read`, or none at all for `release.yml`); the jobs that need more request it explicitly: `release.yml` and `bootstrap-main.yml` (`contents: write`, to publish a release and to create the `main` branch), `labels.yml` (`issues: write`) and `pr-labels.yml` (`pull-requests: write`, to add labels from the pull request title; it needs the labels to exist, so run the **Labels** workflow once).
+Every workflow also declares its own top-level `permissions:` block (`contents: read`, or none at all for `release.yml`); the jobs that need more request it explicitly: `release.yml` and `bootstrap-main.yml` (`contents: write`, to publish a release and to create the `main` branch), `labels.yml` (`issues: write`) and `pr-labels.yml` (`pull-requests: write`, to add labels from the pull request title; it needs the labels to exist; the **Labels** workflow creates them on the first push).
 
 Workflows run on an explicit runner image (`ubuntu-24.04`) rather than `ubuntu-latest`. GitHub moves `ubuntu-latest` to a new Ubuntu release on its own schedule, which changes the toolchain under every job at once. Moving to a newer image is a deliberate edit of the `runs-on:` lines once the build has been verified on it.
 
@@ -123,7 +123,7 @@ done
 
 1. Push `main` and `develop` (both exist before the rulesets are imported), then make `develop` the default branch (section 1).
 2. Apply sections 1, 2 and 4.
-3. Run the **Labels** workflow once (Actions → Labels → Run workflow) to create every label.
+3. Check that the **Labels** workflow created every label (Actions → Labels); if the labels are missing, run it with Actions → Labels → Run workflow.
 4. Import the three rulesets (section 5).
 5. Tick **Template repository** (section 1) once everything above is in place.
 6. Verify (next section).
@@ -131,7 +131,7 @@ done
 ### Every project created from the template
 
 1. **Use this template** → Create a new repository. Leave **Include all branches** unchecked: the new repository starts with one branch, the template's default (`develop`). `main` is created for you by the **Bootstrap main** workflow, the first time it is missing. It starts by itself on the repository's first commit, so `main` appears within a minute; if it did not run, start it through Actions → Bootstrap main → Run workflow. To do it by hand instead: `git push origin develop:main` (the `pre-push` hook only blocks a branch that already exists on the remote) or Branches → New branch. The workflow never touches an existing `main` and can be deleted once `main` exists. `main` must exist before the rulesets are imported and before the first release pull request.
-   Then run the **Labels** workflow once (Actions → Labels → Run workflow, or `gh workflow run labels.yml`), before the first pull requests: Dependabot opens its first pull requests within minutes and `pr-labels.yml` labels every pull request from its title, and both need the labels to exist. Later edits of `.github/labels.yml` sync by themselves when they reach `develop` or `main`.
+   The **Labels** workflow creates every label by itself on that first push, because the first commit contains `.github/labels.yml`. Check Actions → Labels before the first pull requests (Dependabot opens its first pull requests within minutes and `pr-labels.yml` labels every pull request from its title, and both need the labels to exist); only if the labels are missing, run it with Actions → Labels → Run workflow, or `gh workflow run labels.yml`. Later edits of `.github/labels.yml` sync by themselves when they reach `develop` or `main`.
 2. Update `.github/CODEOWNERS` with your username, and review `LICENSE`, `README.md`, `SECURITY.md` and `CONTRIBUTING.md`: they describe the template until you replace them. Delete `CHANGELOG.md`: your changelog is the GitHub Releases page, whose notes are generated from pull-request labels.
 3. Run `flutter create --org <your.org> .` in the container, then `flutter pub get` so `pubspec.lock` exists (CI switches to its full Tier 3 checks on the next pull request).
 4. Freeze the toolchain: run `scripts/pin-image.sh`. It pins the dev image in `docker-compose.yml` to the newest permanent `flutter-X.Y.Z.R` tag of your Flutter plus its digest and writes `environment: flutter: <version>` to `pubspec.yaml`, so CI and the builds use the same Flutter; it also refreshes `pubspec.lock`. Commit the three files. Then replace the template guide with your app's README: `scripts/init-readme.sh --description "What the app does."` (name, badges, platforms, stack versions, template release and license line are filled in from the project).

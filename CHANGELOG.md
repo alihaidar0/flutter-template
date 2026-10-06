@@ -67,6 +67,22 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Changed
 
+- Labels: the **Labels** workflow already runs on the first push of a repository
+  created from the template (the first commit contains `.github/labels.yml`), so
+  the README and `docs/github-setup.md` now say to check that the labels exist
+  and to run the workflow by hand only if they are missing. `workflow_dispatch`
+  stays as the fallback.
+- The `wont fix` label is now `wontfix`, the name GitHub creates in every new
+  repository, so the sync updates the default label instead of adding a second
+  one. Existing projects keep both labels until you delete one by hand; the
+  workflow never deletes labels.
+- `.husky/pre-push` runs `flutter analyze --fatal-infos`, the same command as the
+  CI analyze job, so an info-level lint fails before the push instead of in CI.
+  The README troubleshooting entry names the flag (the `fanalyze` alias in the
+  image does not pass it).
+- README: step 5 and the "What to change" table tell new apps to decide the
+  application ID before the first commit, because with an underscore in the
+  project name Android and iOS get different IDs.
 - `labels.yml` syncs `.github/labels.yml` with the `gh` CLI (`gh label create
   --force` per label, parsed with the runner's preinstalled `yq` and `jq`)
   instead of the `EndBug/label-sync` action, which still declares Node 20 and
@@ -246,6 +262,11 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Fixed
 
+- The **Format** job no longer fails the first pull request of a new app: files
+  that `flutter create` writes under `android/`, `ios/`, `web/`, `macos/`,
+  `linux/` and `windows/` (for example an iOS launch-image `README.md` without a
+  final newline) are skipped by the trailing-whitespace and final-newline
+  checks. The CRLF check and every other file are still checked.
 - CI and builds no longer fail at job setup when a repository turns on
   **Require actions to be pinned to a full-length commit SHA**. That setting
   also covers the actions called inside a composite action, and the third-party
