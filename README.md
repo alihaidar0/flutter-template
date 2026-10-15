@@ -287,7 +287,8 @@ fixes: [section 8](#8-run-on-your-host-emulator-and-browser).
 | `README.md` | Run `scripts/init-readme.sh` (step 8 above) to replace this guide with your app's README, then extend it |
 | `SECURITY.md`, `CONTRIBUTING.md` | Rewrite for your project; they describe the template |
 | `CHANGELOG.md` | **Delete** — your changelog is the GitHub Releases page ([section 7](#73-releases-and-the-changelog)) |
-| `.env.example` | Replace the sample keys with the ones your app needs (never commit a real `.env`) |
+| `.env.example` | Lists the **names** of the build-time values your app reads, no values. Add a name when the app starts reading one; values go in a local `.env` (never committed), in `env/<environment>.json` when they are not secret, or in environment secrets in CI. They are passed with `--dart-define-from-file`, never bundled as a file with keys inside the app |
+| `cspell.json`, `.cspell/project-words.txt` | Spell checker settings and the list of your project's own words (genuine words, lowercase, alphabetical); extend the list, and add the generated API folder to `ignorePaths` if you use another one than `lib/api` |
 | `pubspec.yaml` `version:` | Keep a semantic version (`1.0.0+1`); it names the production draft release (`v1.0.0`), so raise it in the release pull request for every new release ([7.3](#73-releases-and-the-changelog)) |
 | `android/app/build.gradle.kts`, `pubspec.yaml` `default-flavor:` | Define the `staging` and `production` flavors and the two signing keys right after `flutter create` ([7.5](#75-flavors-staging-and-production-set-up-right-after-flutter-create), [`docs/android-signing.md`](docs/android-signing.md)) |
 | `docker-compose.yml`, `pubspec.yaml` `environment: flutter:` | Written by `scripts/pin-image.sh`; commit them |
@@ -936,7 +937,10 @@ build web` has no flavor support**, so the web build uses `APP_ENV` only.
    builds them.
 
 5. **Run it locally.** `flutter run` starts staging; the production app is
-   `flutter run --flavor production`, and installs next to it.
+   `flutter run --flavor production`, and installs next to it. In VS Code, F5 runs
+   the staging flavor on the host emulator, and **Flutter (Android — host emulator,
+   production)** runs the production one
+   ([section 8](#8-run-on-your-host-emulator-and-browser)).
 
 `build.yml` needs no edit for any of this: it reads the application ID from
 `applicationId`, the file prefix from the `name:` in `pubspec.yaml`, and whether to
@@ -978,11 +982,13 @@ host (Android Studio → Device Manager), then in VS Code press **F5** and pick:
 | Launch configuration | What happens |
 | --- | --- |
 | **Flutter (Emulator + Browser)** | Both of the below at once; stopping one stops both |
-| **Flutter (Android — host emulator)** | Connects the container to the emulator, installs and runs the app; hot reload (`r`) and hot restart (`R`) work |
+| **Flutter (Android — host emulator)** | Connects the container to the emulator, installs and runs the **staging** flavor; hot reload (`r`) and hot restart (`R`) work |
+| **Flutter (Android — host emulator, production)** | The same with the **production** flavor, which installs next to the staging app |
 | **Flutter (Web — host browser)** | Serves the app on port 8080 inside the container; VS Code forwards the port and opens it in your host browser |
 
-From a terminal the equivalents are `flutter run -d host.docker.internal:5555` and
-`frunw`. Web needs no emulator, adb or firewall setup, which makes it the fastest
+From a terminal the equivalents are `flutter run --flavor staging -d host.docker.internal:5555`
+(also the task **Terminal → Run Task → Run app on emulator**, which connects the
+emulator first) and `frunw`. Web needs no emulator, adb or firewall setup, which makes it the fastest
 loop when Android-specific behaviour is not what you are testing.
 
 The app runs on the emulator or in the browser, so a backend on your machine is reached
@@ -1152,9 +1158,9 @@ flutter-template/
 │   └── pre-push                      ← blocks main and develop, runs flutter analyze
 ├── .vscode/
 │   ├── extensions.json               ← recommends Dev Containers
-│   ├── launch.json                   ← host emulator, host browser, both
+│   ├── launch.json                   ← host emulator (staging, production), host browser, both
 │   ├── settings.json                 ← shared editor settings
-│   └── tasks.json                    ← "Connect host emulator"
+│   └── tasks.json                    ← "Connect host emulator", "Run app on emulator"
 ├── docs/
 │   ├── android-signing.md            ← the two signing keys, flavors in Gradle, GitHub environments and secrets
 │   ├── consuming-the-api.md          ← pin the backend API contract, generate the client (optional)
@@ -1169,9 +1175,11 @@ flutter-template/
 │   ├── pin-ssh-key.sh                ← pins the SSH key of the repository's GitHub account
 │   ├── sync-api.sh                   ← pins a backend release's API contract and generates the client (optional)
 │   └── welcome.sh                    ← banner, hook self-heal, SSH key pin, adb connect
+├── .cspell/project-words.txt         ← your own words for the spell checker
 ├── .editorconfig · .env.example · .gitattributes · .gitignore
 ├── CHANGELOG.md · CONTRIBUTING.md · LICENSE · README.md · SECURITY.md
 ├── commitlint.config.mjs
+├── cspell.json                       ← spell checker settings
 ├── swagger_parser.yaml               ← API client generator settings (inert until an app pins a contract)
 ├── docker-compose.yml                ← starts the container, mounts the project and caches
 ├── package.json · pnpm-lock.yaml · pnpm-workspace.yaml   ← Husky + commitlint only
@@ -1192,8 +1200,9 @@ flutter-template/
 | `.github/rulesets/`, `.github/dependabot.yml`, `.github/labels.yml`, `.github/release.yml`, `.github/CODEOWNERS` | Governance as files |
 | `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/`, `.github/CODE_OF_CONDUCT.md`, `SECURITY.md`, `CONTRIBUTING.md` | Community files |
 | `docs/` | GitHub settings guide, environments and releases, Android signing guide and the backend API guide |
-| `.vscode/*` | Shared editor settings and the run/debug configurations |
-| `.env.example`, `.editorconfig`, `.gitattributes`, `.gitignore`, `LICENSE`, `CHANGELOG.md`, `repomix.config.json` | Supporting files |
+| `.vscode/*` | Shared editor settings, the run/debug configurations (staging and production flavors) and the run task |
+| `cspell.json`, `.cspell/project-words.txt` | Spell checker settings and the project's own words |
+| `.env.example` (names of build-time values), `.editorconfig`, `.gitattributes`, `.gitignore`, `LICENSE`, `CHANGELOG.md`, `repomix.config.json` | Supporting files |
 
 **Not included** (add per project): state management, routing, HTTP, storage and
 Firebase packages (`flutter pub add <package>`; the packages for the optional backend client are

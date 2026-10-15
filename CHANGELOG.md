@@ -140,6 +140,17 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   tag for slow tests. The **Scripts and hooks are executable in Git** step of
   `ci.yml` moved from the template guard to the **Format** job, so it now also
   runs in a generated project (it is not template-only).
+- Editor and project files for the flavor workflow: `.vscode/launch.json` runs the
+  Android configuration with `--flavor staging` and gains a production one,
+  `.vscode/tasks.json` gains **Run app on emulator** (connect the host emulator,
+  then `flutter run --flavor staging`), and the spell checker moves from a short
+  `cSpell.words` list in `.vscode/settings.json` to `cspell.json` (English, the
+  Dart, Flutter and software dictionaries, `.gitignore` respected, the generated
+  folders ignored) with the project's own words in `.cspell/project-words.txt`.
+  `.env.example` no longer suggests loading a `.env` file with a package at
+  runtime (a file with keys inside the app package is readable by anyone who
+  installs it): it lists the names of build-time values, passed with
+  `--dart-define-from-file`, for the two environments `staging` and `production`.
 - Labels: the **Labels** workflow already runs on the first push of a repository
   created from the template (the first commit contains `.github/labels.yml`), so
   the README and `docs/github-setup.md` now say to check that the labels exist
