@@ -285,6 +285,7 @@ fixes: [section 8](#8-run-on-your-host-emulator-and-browser).
 | `scripts/welcome.sh` | Optional: change the banner title and link |
 | `.github/workflows/image-contract.yml`, `.github/scripts/check-image-contract.sh`, the `release` job of `release.yml`, the `template-guard` job of `ci.yml` | Inert in a project (they only run in the template); delete them if you like |
 | `.github/workflows/bootstrap-main.yml` | Creates `main` from `develop` once; delete it after `main` exists (it then only prints a notice) |
+| `.github/workflows/backend-contract.yml` | Opt-in weekly backend contract check; inert until the repository variable `BACKEND_REPO` is set; delete it if the app has no backend |
 | `swagger_parser.yaml`, `scripts/sync-api.sh`, `scripts/generate-api.sh`, `docs/consuming-the-api.md` | Used only with a backend (step 7 above); delete them if the app has none (the **API client is current** job then never runs anyway) |
 | `docs/` | Keep as a reference or delete |
 | Template version | `scripts/init-readme.sh` writes the template release you started from into your app's README (the newest on the [template's Releases page](https://github.com/alihaidar0/flutter-template/releases); if you run it later, pass the one from the day you created the app, for example `--template-release v2026.10.04`). Later, that page shows what changed since then ([section 7.3](#73-releases-and-the-changelog)) |
@@ -334,6 +335,7 @@ flowchart TD
 | Code security | Private vulnerability reporting | On |
 | Code security | CodeQL default setup | On, language **Actions** (CodeQL does not cover Dart) |
 | Actions → Variables (optional) | `BUILD_IOS` | `true` to add the unsigned iOS compile check |
+| Actions → Variables / Secrets (optional) | `BACKEND_REPO` / `BACKEND_READ_TOKEN` | `OWNER/REPO` of the backend to turn on the weekly contract check ([7.6](#76-backend-api-contract-optional-per-app)); the secret is a read-only fine-grained token, only for a private backend |
 | Environments (optional) | `production` | Restricted to `main`; holds signing secrets ([`docs/android-signing.md`](docs/android-signing.md)) |
 
 With the GitHub CLI, from the repository root (replace `OWNER/REPO`):
@@ -834,6 +836,7 @@ so the two always build against a known, reviewable version.
 | `scripts/generate-api.sh` | Regenerates `lib/api` (`swagger_parser`, `build_runner`, `dart format`); the only place that knows the commands |
 | `swagger_parser.yaml` | Generator settings: Retrofit and Dio clients with `json_serializable` models, committed under `lib/api` |
 | **API client is current** (`ci.yml`) | Runs the generator and fails if `lib/api` differs from the commit; skipped on a fresh template and in an app without `api/openapi.yaml`; part of **CI passed** |
+| `backend-contract.yml` | Every Monday, compares `api/BACKEND_VERSION` with the backend's newest release and keeps one `dependencies` issue open while a newer one exists; does nothing until the repository variable `BACKEND_REPO` is set; not part of **CI passed** |
 
 The pinned file only changes in a pull request, so the app moves to a new backend release
 deliberately: read the release notes (`breaking change` entries), run the script with the new
@@ -1007,6 +1010,7 @@ flutter-template/
 │   │   └── check-image-contract.sh   ← compares the template with the dev image
 │   ├── workflows/
 │   │   ├── bootstrap-main.yml        ← creates main from develop in a new project (never in the template)
+│   │   ├── backend-contract.yml      ← opt-in weekly check for a newer backend API contract (variable BACKEND_REPO)
 │   │   ├── build.yml                 ← staging (PR → develop) and production (PR/merge → main) builds
 │   │   ├── ci.yml                    ← pull request validation → "CI passed"
 │   │   ├── image-contract.yml        ← weekly template ↔ image check (template repo only)
