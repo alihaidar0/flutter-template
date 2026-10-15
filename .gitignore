@@ -10,6 +10,7 @@ build/
 **/android/local.properties
 **/android/.gradle/
 **/android/key.properties
+**/android/key.*.properties
 **/android/app/upload-keystore.jks
 **/android/app/google-services.json
 
@@ -30,6 +31,8 @@ lib/generated_plugin_registrant.dart
 !.env.example
 *.jks
 *.keystore
+# A folder for local signing keys and their notes (docs/android-signing.md).
+.signing/
 google-services.json
 GoogleService-Info.plist
 **/assets/secrets/

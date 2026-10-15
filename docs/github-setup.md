@@ -12,9 +12,9 @@ feat/*  fix/*  docs/*  ci/*  chore/*  deps/*
         │  pull request, merge commit, source must be `develop`
         ▼
        main    ← stable branch, protected
-        │  push
-        ▼
-  build.yml (APK, AAB, web artifacts) + release.yml (GitHub Release)
+
+  A push to develop (staging) or main (production) runs build.yml: signed APKs and
+  AAB, web build, draft GitHub Release (docs/environments.md)
 ```
 
 - Nobody pushes to `develop` or `main` directly (rulesets enforce it; the `pre-push` hook blocks both locally as a convenience).
@@ -59,16 +59,16 @@ The default branch is `develop`, the integration branch, so every automatic pull
 | Workflow permissions | **Read repository contents and packages permissions** |
 | Allow GitHub Actions to create and approve pull requests | Off |
 
-Every workflow also declares its own top-level `permissions:` block (`contents: read`, or none at all for `release.yml`); the jobs that need more request it explicitly: `release.yml` and `bootstrap-main.yml` (`contents: write`, to publish a release and to create the `main` branch), `labels.yml` and `backend-contract.yml` (`issues: write`) and `pr-labels.yml` (`pull-requests: write`, to add labels from the pull request title; it needs the labels to exist; the **Labels** workflow creates them on the first push).
+Every workflow also declares its own top-level `permissions:` block (`contents: read`, or none at all for `release.yml`); the jobs that need more request it explicitly: the `release-draft` job of `build.yml` (`contents: write`, to create the draft release and attach the signed files; it has no access to the signing secrets), `release.yml` (template repository only) and `bootstrap-main.yml` (both `contents: write`, to publish a release and to create the `main` branch), `labels.yml` and `backend-contract.yml` (`issues: write`) and `pr-labels.yml` (`pull-requests: write`, to add labels from the pull request title; it needs the labels to exist; the **Labels** workflow creates them on the first push).
 
 Workflows run on an explicit runner image (`ubuntu-24.04`) rather than `ubuntu-latest`. GitHub moves `ubuntu-latest` to a new Ubuntu release on its own schedule, which changes the toolchain under every job at once. Moving to a newer image is a deliberate edit of the `runs-on:` lines once the build has been verified on it.
 
 ## 3. Environments and secrets
 
-The template needs **no secrets and no environments**: CI and the build workflow only use the automatic `GITHUB_TOKEN`. Add them per project when you add a deployment workflow:
+The template needs **no secrets and no environments**: CI and the pull-request builds only use the automatic `GITHUB_TOKEN`. A project needs two environments, `staging` (restricted to `develop`) and `production` (restricted to `main`), as soon as its Android flavors exist, because the signed builds run in them and read the signing secrets and one variable from them ([`android-signing.md`](android-signing.md) section 3). The same rules apply to any later deployment target:
 
-- Create an environment per deployment target (for example `production`), restrict it to `main` under **Deployment branches and tags**, and put the target's credentials there as environment secrets rather than repository secrets (a repository secret stays readable from any branch).
-- Optionally require a reviewer on the environment for production deployments.
+- Create an environment per deployment target, restrict it to its branch under **Deployment branches and tags**, untick **Allow administrators to bypass configured protection rules**, and put the target's credentials there as environment secrets rather than repository secrets (a repository secret stays readable from any branch). Create the environment before the first workflow run that names it: GitHub creates a missing one on the fly, without any restriction.
+- Do not put required reviewers or a wait timer on `staging` (they would hold every build on `develop`); a reviewer on `production` is optional.
 - An app with a backend can turn on the weekly contract check (`backend-contract.yml`) with the repository variable `BACKEND_REPO` (`OWNER/REPO` of the backend). A private backend also needs the repository secret `BACKEND_READ_TOKEN`, a fine-grained personal access token limited to that one repository with read-only **Contents** access; it is only used to read the backend's releases. A public backend needs no token. See [`consuming-the-api.md`](consuming-the-api.md).
 - Never commit a keystore, signing password or service-account key; any file in the repository is readable by everyone who can read the repository, so secrets belong in environment secrets.
 
@@ -138,9 +138,10 @@ done
 4. Freeze the toolchain: run `scripts/pin-image.sh`. It pins the dev image in `docker-compose.yml` to the newest permanent `flutter-X.Y.Z.R` tag of your Flutter plus its digest and writes `environment: flutter: <version>` to `pubspec.yaml`, so CI and the builds use the same Flutter; it also refreshes `pubspec.lock`. Commit the three files. Then replace the template guide with your app's README: `scripts/init-readme.sh --description "What the app does."` (name, badges, platforms, stack versions, template release and license line are filled in from the project).
 5. Uncomment the `pub` and `docker-compose` blocks in `.github/dependabot.yml` so package and image updates arrive as reviewed pull requests.
 6. Apply sections 1, 2 and 4 (with **Template repository** left off), and import the rulesets once CI has run on `main` (section 5). The labels were created in step 1.
-7. `image-contract.yml`, the `release` job and the template guard job are inert in a project (they only run where the repository is a template). Delete them if you like. The `app-release` job of `release.yml` publishes a GitHub Release for the version in `pubspec.yaml` when `main` changes.
-8. Optional: set the repository variable `BUILD_IOS` to `true` to add an unsigned iOS compile check to `build.yml`, and follow [`android-signing.md`](android-signing.md) to sign the production Android build.
-9. Add deployment workflows, environments and secrets when you need them (section 3).
+7. `image-contract.yml`, `release.yml` and the template guard job are inert in a project (they only run where the repository is a template). Delete them if you like. A project's releases are the draft releases of `build.yml` (see the promotion paragraph in section 8).
+8. Set up the Android flavors and signing: follow [`android-signing.md`](android-signing.md) and [`environments.md`](environments.md). Before the first merge that builds them, create the environments `staging` (restricted to `develop`) and `production` (restricted to `main`) with their secrets and variable (section 3); until the flavors exist the Android jobs of `build.yml` are skipped with a warning.
+9. Optional: set the repository variable `BUILD_IOS` to `true` to add an unsigned iOS compile check to `build.yml` (it needs the iOS flavors first).
+10. Add deployment workflows, further environments and secrets when you need them (section 3).
 
 ## 7. Verify the protection works
 
@@ -148,7 +149,9 @@ done
 - A pull request from a topic branch into `main` fails **Verify source branch**, so **CI passed** is red and the pull request cannot merge.
 - A pull request from `develop` into `main` offers only **Create a merge commit**.
 - On a fresh checkout (no `pubspec.yaml`) **CI passed** is green, with every Flutter job skipped but **Lint**, **Format**, **Commit messages** and **Node dependency audit** still run.
-- After `flutter create`, a pull request runs **Flutter format**, **Flutter analyze**, **Flutter test**, **Dependency audit** and **Flutter doctor**, and `build.yml` builds the APK, AAB and web app: a pull request into `develop` produces the `*-staging` artifacts, one into `main` the `*-production` artifacts.
+- On a fresh checkout `build.yml` finds no `pubspec.yaml` and skips every job.
+- After `flutter create`, a pull request runs **Flutter format**, **Flutter analyze**, **Flutter test**, **Dependency audit** and **Flutter doctor**, and `build.yml` builds the web app. Once the Android flavors exist it also builds the APK and AAB: a pull request into `develop` produces the `*-staging` artifacts, one into `main` the `*-production` artifacts. These are test builds signed with the debug key and never see a secret.
+- With the environments and secrets in place, a merge into `develop` runs the signed staging build and refreshes the draft release "Staging"; a merge of the release pull request into `main` runs the signed production build and refreshes the draft release `v<version>`. A signing job that finds a secret missing stops with a message naming it.
 - A commit message such as `Fixed stuff` fails **Commit messages**.
 
 ## 8. Everyday workflow
@@ -179,6 +182,8 @@ If the email is not the one you want on this repository, set it for this reposit
 
 If you use several GitHub accounts, give each one its own SSH host alias in `~/.ssh/config` (`Host github.com-<account>` with `HostName github.com`, `User git`, its own `IdentityFile` and `IdentitiesOnly yes`) and keep `origin` on that alias, for example `git@github.com-<account>:OWNER/REPO.git`. Do not rewrite it to `github.com` or `https://`, or the wrong key and account get used. The container never receives your private keys: VS Code forwards your host ssh-agent, and `welcome.sh` maps a `github.com-<account>` alias in the `origin` URL to `github.com` inside the container. Load only that account's key into the agent (`ssh-add -D`, then `ssh-add <key>`), because GitHub accepts the first key the agent offers.
 
-Promotion: open a pull request `develop` → `main` (title `release: <summary>`) and merge it with a merge commit. That push runs **Build** (production APK, AAB and web artifacts, once the project has a `pubspec.lock`) and **Release**. In a project, **Release** publishes a GitHub Release for the version in `pubspec.yaml` (`1.4.0+7` → `v1.4.0`) with notes grouped by pull request label — raise the version in this pull request, otherwise nothing is published. In the template repository it publishes a calendar-versioned release (`vYYYY.MM.DD`); a promotion that only changes documentation produces none.
+In a project, every merge into `develop` runs **Build** for staging: signed Android files in the rolling draft release "Staging", which every merge replaces and which is never published. Promotion: open a pull request `develop` → `main` (title `release: <summary>`); it builds the production files for you to test. Merge it with a merge commit: **Build** then signs the production files and attaches them, with the web build, to a **draft** GitHub Release for the version in `pubspec.yaml` (`1.4.0+7` → `v1.4.0`), with notes grouped by pull request label. A new build of the same version replaces the files of its draft. Publish the draft on the Releases page when the version is final; a published release is immutable, so raise the version in the next promotion to get a new one. A change that only touches documentation builds nothing. The whole flow is described in [`environments.md`](environments.md).
+
+In the template repository, a promotion publishes a calendar-versioned release (`vYYYY.MM.DD`) through **Release**; a promotion that only changes documentation produces none.
 
 Once a week **Image contract** (template repository only) compares the template with the `flutter-devcontainer` image: the pnpm version Corepack must not download, the Node major, the image name and every documented shell alias. A red run means one of the two repositories moved on; fix it with a topic branch like any other change.
