@@ -44,8 +44,9 @@ SDK on your machine:
   and a static-analysis gate before you push.
 - **CI/CD that waits for your code** — every check and build is already wired and
   stays dormant until the project has a `pubspec.yaml`, then switches on by itself.
-- **A branch and release model** — `feature → develop → main`, staging builds for
-  pull requests into `develop`, production builds and GitHub Releases for `main`.
+- **A branch and release model** — `feature → develop → main`, test builds for
+  pull requests, signed staging builds on `develop` and signed production builds on
+  `main`, each kept as a draft GitHub Release that you publish with one click.
 - **Repository governance** — rulesets, Dependabot, labels, CODEOWNERS, pull
   request and issue templates, security policy.
 
@@ -197,6 +198,12 @@ value (for example `com.yourcompany.myapp`): set `applicationId` in
 `ios/Runner.xcodeproj/project.pbxproj` (keep the `.RunnerTests` suffix on the
 test target). Leave the Android `namespace` as it is.
 
+**Then set up the two flavors, `staging` and `production`** — the builds, the signing
+keys and the releases are organised around them
+([section 7.5](#75-flavors-staging-and-production-set-up-right-after-flutter-create)).
+Until they exist, the Android jobs of `build.yml` are skipped with a warning and the
+web build still runs, so the first pull request stays green.
+
 **6. Freeze the toolchain:**
 
 ```bash
@@ -254,7 +261,8 @@ git push -u origin feat/initial-app
 
 The commit goes through the hooks ([section 6](#6-git-hooks-and-pre-commit-checks));
 CI on the pull request now runs the full Flutter checks, and `build.yml` produces
-the first **staging** artifacts. Merge with **Create a merge commit**.
+the first **staging** test build (the web app, and the APK and App Bundle once the
+flavors exist). Merge with **Create a merge commit**.
 
 **10. Configure the GitHub repository** ([section 3](#3-set-up-the-github-repository)):
 settings, labels and the rulesets. Do this after the first pull request has run,
@@ -279,11 +287,12 @@ fixes: [section 8](#8-run-on-your-host-emulator-and-browser).
 | `SECURITY.md`, `CONTRIBUTING.md` | Rewrite for your project; they describe the template |
 | `CHANGELOG.md` | **Delete** — your changelog is the GitHub Releases page ([section 7](#73-releases-and-the-changelog)) |
 | `.env.example` | Replace the sample keys with the ones your app needs (never commit a real `.env`) |
-| `pubspec.yaml` `version:` | Keep a semantic version (`1.0.0+1`); raising it in a release pull request publishes a release |
+| `pubspec.yaml` `version:` | Keep a semantic version (`1.0.0+1`); it names the production draft release (`v1.0.0`), so raise it in the release pull request for every new release ([7.3](#73-releases-and-the-changelog)) |
+| `android/app/build.gradle.kts`, `pubspec.yaml` `default-flavor:` | Define the `staging` and `production` flavors and the two signing keys right after `flutter create` ([7.5](#75-flavors-staging-and-production-set-up-right-after-flutter-create), [`docs/android-signing.md`](docs/android-signing.md)) |
 | `docker-compose.yml`, `pubspec.yaml` `environment: flutter:` | Written by `scripts/pin-image.sh`; commit them |
 | `package.json` `name` | Optional: rename from `flutter-template` |
 | `scripts/welcome.sh` | Optional: change the banner title and link |
-| `.github/workflows/image-contract.yml`, `.github/scripts/check-image-contract.sh`, the `release` job of `release.yml`, the `template-guard` job of `ci.yml` | Inert in a project (they only run in the template); delete them if you like |
+| `.github/workflows/image-contract.yml`, `.github/scripts/check-image-contract.sh`, `.github/workflows/release.yml`, the `template-guard` job of `ci.yml` | Inert in a project (they only run in the template); delete them if you like. A project's releases are the drafts of `build.yml` ([7.3](#73-releases-and-the-changelog)) |
 | `.github/workflows/bootstrap-main.yml` | Creates `main` from `develop` once; delete it after `main` exists (it then only prints a notice) |
 | `.github/workflows/backend-contract.yml` | Opt-in weekly backend contract check; inert until the repository variable `BACKEND_REPO` is set; delete it if the app has no backend |
 | `swagger_parser.yaml`, `scripts/sync-api.sh`, `scripts/generate-api.sh`, `docs/consuming-the-api.md` | Used only with a backend (step 7 above); delete them if the app has none (the **API client is current** job then never runs anyway) |
@@ -315,7 +324,7 @@ flowchart TD
     B3 --> B4["Pull request into develop<br/>CI and staging builds run"]
     B4 --> B5["Settings: General, Actions, Code security"]
     B5 --> B7["Import the three rulesets"]
-    B7 --> B8["Release pull request develop to main<br/>production build and GitHub Release"]
+    B7 --> B8["Release pull request develop to main<br/>signed production build and draft release"]
 ```
 
 ### 3.2 Settings to apply (Settings tab)
@@ -336,7 +345,7 @@ flowchart TD
 | Code security | CodeQL default setup | On, language **Actions** (CodeQL does not cover Dart) |
 | Actions → Variables (optional) | `BUILD_IOS` | `true` to add the unsigned iOS compile check |
 | Actions → Variables / Secrets (optional) | `BACKEND_REPO` / `BACKEND_READ_TOKEN` | `OWNER/REPO` of the backend to turn on the weekly contract check ([7.6](#76-backend-api-contract-optional-per-app)); the secret is a read-only fine-grained token, only for a private backend |
-| Environments (optional) | `production` | Restricted to `main`; holds signing secrets ([`docs/android-signing.md`](docs/android-signing.md)) |
+| Environments | `staging` · `production` | Created **before** the first signed build: `staging` restricted to `develop`, `production` restricted to `main`, "Allow administrators to bypass" unticked; each holds its own signing secrets and the variable `ANDROID_CERT_SHA256` ([`docs/android-signing.md`](docs/android-signing.md)) |
 
 With the GitHub CLI, from the repository root (replace `OWNER/REPO`):
 
@@ -377,7 +386,9 @@ done
 - A pull request from `develop` into `main` offers only **Create a merge commit**.
 - A commit message such as `Fixed stuff` fails **Commit messages** in CI.
 - A pull request runs **Flutter format**, **analyze**, **test**, **Dependency
-  audit** and **Flutter doctor**, and `build.yml` uploads the staging artifacts.
+  audit** and **Flutter doctor**, and `build.yml` uploads the staging test builds.
+- A merge into `develop` refreshes the draft release "Staging"; the merge of the
+  release pull request into `main` fills the draft release `v<version>`.
 
 ---
 
@@ -614,16 +625,35 @@ flowchart TD
 ```mermaid
 flowchart TD
     PD["Pull request into develop"] --> CI1["CI: repository checks<br/>and Flutter checks"]
-    PD --> BS["Build: STAGING<br/>APK, AAB, web"]
+    PD --> BS["Build: STAGING test build<br/>debug key, no secrets"]
+    MD["Merge into develop"] --> SS["Build: signed STAGING<br/>staging key"]
+    SS --> DS["Draft release Staging<br/>files replaced, never published"]
     PM["Release pull request<br/>develop into main"] --> VS["Verify source branch"]
     PM --> CI2["CI: same checks"]
-    PM --> BP["Build: PRODUCTION<br/>APK, AAB, web"]
-    MM["Merge to main"] --> BP2["Build: PRODUCTION<br/>from the merged commit"]
-    MM --> RL["Release: GitHub Release<br/>for the pubspec version"]
+    PM --> BP["Build: PRODUCTION test build<br/>debug key, no secrets"]
+    MM["Merge into main"] --> SP["Build: signed PRODUCTION<br/>production key"]
+    SP --> DP["Draft release v version<br/>you publish it with one click"]
     CI1 --> GATE["CI passed<br/>the one required check"]
     CI2 --> GATE
     VS --> GATE
 ```
+
+**Build and release flow in short.** The two environments are `staging` (branch
+`develop`) and `production` (branch `main`); their names are the Android flavors, the
+GitHub environments and the `APP_ENV` value.
+
+| Event | Result |
+| --- | --- |
+| Pull request into `develop` | Staging test build, debug key, no secrets, artifacts kept 14 days |
+| Pull request into `main` (the release PR) | Production test build, same rules: test it before merging |
+| Merge into `develop` | Signed staging build; its files replace those of the rolling **draft** release "Staging" (tag `staging`, never published) |
+| Merge into `main` | Signed production build; its files go into the **draft** release `v<version>` (version from `pubspec.yaml` without `+build`) |
+| Manual run | Signed build of the chosen environment |
+
+You publish the production draft with one click on the Releases page when the version
+is final; nothing publishes by itself. The complete description, including the signing
+keys, is in [`docs/environments.md`](docs/environments.md) and
+[`docs/android-signing.md`](docs/android-signing.md).
 
 ### 7.1 `ci.yml` — pull request checks
 
@@ -681,59 +711,94 @@ pinned CI prints a warning (never a failure). Every job has least-privilege
 
 ### 7.2 `build.yml` — staging and production builds
 
-| Trigger | Environment | Artifacts (retention) |
-| --- | --- | --- |
-| Pull request into `develop` | `staging` | `android-apk-staging`, `android-aab-staging`, `web-build-staging` (14 days) |
-| Pull request into `main` (the release PR) | `production` | `android-apk-production`, `android-aab-production`, `web-build-production` (30 days) |
-| Push to `main` (the merged release) | `production` | same names, built from the merged commit |
-| Manual run (**Actions → Build → Run workflow**) | `staging` or `production` | same names |
+| Trigger | Environment | What it builds | Artifacts (retention) |
+| --- | --- | --- | --- |
+| Pull request into `develop` | `staging` | test build, debug key, no secrets | `android-apk-staging`, `android-aab-staging`, `web-build-staging` (14 days) |
+| Pull request into `main` (the release PR) | `production` | test build, same rules | `android-apk-production`, `android-aab-production`, `web-build-production` (14 days) |
+| Push to `develop` (a merge) | `staging` | signed build, in the `staging` GitHub environment | `android-release-signed-staging`, `android-debug-symbols-staging`, `web-build-staging` (30 days), and the draft release "Staging" |
+| Push to `main` (the merged release) | `production` | signed build, in the `production` GitHub environment | the same with `-production`, and the draft release `v<version>` |
+| Manual run (**Actions → Build → Run workflow**) | `staging` or `production` | signed build | same as a push |
 
 Every build runs `flutter build <target> --release --dart-define=APP_ENV=<environment>`
 and, if the project has `env/<environment>.json`, adds
-`--dart-define-from-file=env/<environment>.json`. Read the value in Dart with
-`const appEnv = String.fromEnvironment('APP_ENV');`. Draft pull requests are not
-built; the workflow only runs when Flutter source, assets, `env/`, `pubspec.*` or
-the native folders change, and it skips entirely until `pubspec.yaml` and
-`pubspec.lock` exist. The production build runs on both the release pull request
-(proof the release compiles) and the merge (the artifact to ship, traceable to one
-commit on `main`).
+`--dart-define-from-file=env/<environment>.json`. Android builds add
+`--flavor <environment>`. Draft pull requests are not built; the workflow only runs
+when Flutter source, assets, `env/`, `pubspec.*` or the native folders change, and it
+skips entirely until `pubspec.yaml` and `pubspec.lock` exist. The production test build
+runs on the release pull request, so you can install and try the production app before
+you merge; the merge then builds and signs it again from the merged commit.
 
-Nothing is signed or deployed: release builds without a signing configuration use
-the debug key, so the artifacts are for testing. To sign the production App Bundle
-for the Play Store follow [`docs/android-signing.md`](docs/android-signing.md);
-deployment (Play Store, Firebase App Distribution, a web host) and flavors
-([7.5](#75-flavors-optional-per-app)) are added per project.
+Jobs: `detect` (state, environment, Flutter pin and the project facts below),
+`build-web`, `build-android-test` (pull requests, APK and AAB matrix),
+`build-android-signed` (pushes and manual runs; **the only job that reads the signing
+secrets**), `release-draft` (pushes to `develop` and `main`; the only job with
+`contents: write`, and it has no access to the secrets) and the opt-in `build-ios`.
+
+- **Test builds** are signed with the debug key and never see a secret.
+- **Signed builds** use the key of their GitHub environment, are obfuscated
+  (`--obfuscate --split-debug-info`), produce one APK per CPU type (`arm64-v8a`,
+  `armeabi-v7a`, `x86_64`) plus the App Bundle, use the workflow run number as the build
+  number (it only ever increases), and **verify the signature**: exactly three APKs and
+  one App Bundle, never the debug key, and the optional environment variable
+  `ANDROID_CERT_SHA256` (a public fingerprint) when it is set. The files are named
+  `<name>-<version>-<abi>.apk` with a `SHA256SUMS.txt`. The debug symbols are a separate
+  workflow artifact, never part of a release.
+- **Project facts**, read by `detect` so the workflow needs no edit: the application ID
+  (from `applicationId` in `android/app/build.gradle(.kts)`; the staging flavor adds
+  `.staging`), the file prefix (`name:` in `pubspec.yaml`) and whether the app uses
+  Firebase (the Google services plugin). Only then do test builds get a placeholder
+  `google-services.json` and signed builds write the real one from the environment
+  secret `GOOGLE_SERVICES_JSON_BASE64`.
+- **Without flavors** the Android jobs and the release job are skipped with a warning
+  ([7.5](#75-flavors-staging-and-production-set-up-right-after-flutter-create)).
+
+Nothing is deployed (no Play Store, Firebase App Distribution or web host); those are
+added per project. The signing keys, the GitHub environments and the secrets are in
+[`docs/android-signing.md`](docs/android-signing.md), the flow in
+[`docs/environments.md`](docs/environments.md).
 
 **iOS (opt-in).** macOS runners cost more minutes on private repositories, so the
 iOS job is off until the repository variable `BUILD_IOS` is `true`
 (**Settings → Secrets and variables → Actions → Variables**). It then runs
 `flutter build ios --release --no-codesign` on `macos-15` and uploads
-`ios-app-<environment>`: an unsigned compile check, not an installable app.
+`ios-app-<environment>`: an unsigned compile check, not an installable app. With
+`default-flavor` set it needs the iOS flavors (Xcode schemes) first.
 
 ### 7.3 Releases and the changelog
 
-`release.yml` runs when `main` changes and publishes a GitHub Release with
-**generated notes**, grouped by pull-request label (`.github/release.yml`). The
-Releases page is the changelog; nothing is committed back to a protected branch, so
-no bot, token or extra pull request is involved.
+A project's releases are the **draft** GitHub Releases that `build.yml` creates, with
+**generated notes** grouped by pull-request label (`.github/release.yml`). The
+Releases page is the changelog; nothing is committed back to a protected branch, so no
+bot, token or extra pull request is involved. Nothing publishes by itself.
 
 ```mermaid
 flowchart LR
     V["Raise version in pubspec.yaml<br/>in the release pull request"] --> M["Merge develop into main"]
-    M --> J["release.yml: tag v + version"]
-    J --> E{"tag exists?"}
-    E -- yes --> N["nothing published<br/>bump the version again"]
-    E -- no --> R["GitHub Release with notes<br/>grouped by PR label"]
+    M --> J["build.yml: signed production build<br/>release-draft job"]
+    J --> E{"release v version<br/>already published?"}
+    E -- yes --> N["left alone, warning<br/>bump the version again"]
+    E -- no --> R["draft release with notes<br/>grouped by PR label, files replaced"]
+    R --> P["you publish the draft<br/>with one click"]
 ```
 
-- **In a project** the tag is the `pubspec.yaml` version without the build number
-  (`version: 1.4.0+7` releases `v1.4.0`). A version is released once; a suffix
-  (`2.0.0-beta.1`) marks a pre-release. Labels (`feature`, `bug`,
-  `breaking change`, `documentation`, …) are added automatically from the pull
-  request title by `pr-labels.yml` (a `develop` → `main` promotion gets
-  `skip-changelog`); add or remove one by hand to override, and use
+- **Staging:** one rolling draft called "Staging" (tag `staging`) holds the files of the
+  latest merge into `develop`. Every merge replaces its files and notes. **Never publish
+  it**: a published release is immutable and the build would then leave it alone. The
+  `staging` tag does not clash with `tags-protect`, which covers `v*` only.
+- **Production:** the draft `v<version>`, where the version is the `pubspec.yaml`
+  version without the build number (`version: 1.4.0+7` → `v1.4.0`). A new build of the
+  same version replaces the files and notes of its draft; a suffix (`2.0.0-beta.1`)
+  marks a pre-release. Publish it on the Releases page when the version is final.
+  A published release is immutable, so the next release needs a higher version.
+- GitHub renames the tag of a draft once it has been updated (to `untagged-…`), so the
+  build finds a draft by its tag or else by its title, warns when more than one matches
+  (it uses the newest) and never touches a published release.
+- Labels (`feature`, `bug`, `breaking change`, `documentation`, …) are added
+  automatically from the pull request title by `pr-labels.yml` (a `develop` → `main`
+  promotion gets `skip-changelog`); add or remove one by hand to override, and use
   `skip-changelog` to leave a pull request out.
-- **In the template** the tag is the calendar date (`vYYYY.MM.DD`).
+- **In the template** the tag is the calendar date (`vYYYY.MM.DD`), published by
+  `release.yml` (template repository only; it is inert in a project).
   An app created from the template does not carry its history, so the tag is not
   recorded for you: to see what changed in the toolchain (hooks, workflows,
   Dev Container) since you started, open the
@@ -742,8 +807,9 @@ flowchart LR
 - Tags `v*` are immutable (`tags-protect`).
 
 **Cut a release:** open the pull request `develop` → `main` titled
-`release: <summary>`, raise `version:` in `pubspec.yaml`, wait for **CI passed**
-and the production build, and merge with a merge commit.
+`release: <summary>`, raise `version:` in `pubspec.yaml`, wait for **CI passed** and
+the production test build (install it and try it), merge with a merge commit, then
+publish the draft release `v<version>` once the signed build has filled it.
 
 ### 7.4 Dependabot
 
@@ -758,70 +824,110 @@ never proposed immediately.
 | `pub` | Dart packages | **Commented out** in the template (needs a `pubspec.yaml`); uncomment in a project |
 | `docker-compose` | The dev image | **Commented out**; uncomment after `scripts/pin-image.sh` |
 
-### 7.5 Flavors (optional, per app)
+### 7.5 Flavors: `staging` and `production` (set up right after `flutter create`)
 
-The template separates staging from production with **compile-time configuration**
-(`--dart-define=APP_ENV` and an optional `env/<environment>.json`), which is
-enough for most apps and needs no native changes. It does **not** ship Flutter
-**flavors**: they live in `android/` and `ios/`, which only exist after
-`flutter create`, and the template stays a blank canvas. Add flavors in an app when
-you need what configuration alone cannot give:
+The build flow depends on two Flutter **flavors** named after the environments:
+`staging` and `production`. They give each environment its own application ID (so both
+install side by side), its own signing key, its own secrets in a GitHub environment,
+and optionally its own Firebase project. The template ships no flavors itself —
+they live in `android/`, which only exists after `flutter create`, and the template
+stays a blank canvas — so you add them once, at the start. Until they exist, the Android
+jobs and the release job of `build.yml` are skipped with a warning (the web build is not
+affected), so nothing breaks in the meantime.
 
-| You need | `APP_ENV` / `env/*.json` | Flavors |
-| --- | --- | --- |
-| Different API URL, keys or feature flags per environment | Yes | Yes |
-| Staging and production installed **side by side** on one device (different app IDs) | No | Yes |
-| A different app name or icon per environment | No | Yes |
-| A separate Firebase project per environment (one `google-services.json` or plist per flavor) | Only by switching config in code | Yes |
+Compile-time configuration stays alongside: every build passes
+`--dart-define=APP_ENV=<environment>` and, if the project has `env/<environment>.json`,
+`--dart-define-from-file`. Flavors change the app's identity and native resources; the
+dart-defines drive configuration in Dart. Flavors apply to Android and iOS; **`flutter
+build web` has no flavor support**, so the web build uses `APP_ENV` only.
 
-Flavors apply to Android and iOS (and macOS); **`flutter build web` has no flavor
-support.** To adopt them, name the flavors after the environments so one name
-drives everything:
-
-1. **Define `staging` and `production` flavors** following the official
-   [Flutter flavors guide](https://docs.flutter.dev/deployment/flavors) (Gradle
-   `productFlavors` for Android; schemes and build configurations for iOS). For
-   example, in `android/app/build.gradle.kts`:
+1. **Define the flavors and the signing configurations** in
+   `android/app/build.gradle.kts` (and delete the `buildTypes { release { signingConfig … } }`
+   block that `flutter create` writes, which would override the flavor's key). Each
+   flavor signs with its own key when `android/key.<environment>.properties` exists and
+   with the debug key otherwise, so pull requests and a fresh clone still build:
 
    ```kotlin
+   import java.io.FileInputStream
+   import java.util.Properties
+
+   fun loadKeyProperties(fileName: String): Properties? {
+       val file = rootProject.file(fileName)
+       if (!file.exists()) return null
+       return Properties().also { properties ->
+           FileInputStream(file).use { properties.load(it) }
+       }
+   }
+
+   val stagingKeyProperties = loadKeyProperties("key.staging.properties")
+   val productionKeyProperties = loadKeyProperties("key.production.properties")
+
    android {
-       flavorDimensions += "environment"
+       signingConfigs {
+           stagingKeyProperties?.let { keys ->
+               create("staging") {
+                   keyAlias = keys.getProperty("keyAlias")
+                   keyPassword = keys.getProperty("keyPassword")
+                   storeFile = keys.getProperty("storeFile")?.let { file(it) }
+                   storePassword = keys.getProperty("storePassword")
+               }
+           }
+           productionKeyProperties?.let { keys ->
+               create("production") {
+                   keyAlias = keys.getProperty("keyAlias")
+                   keyPassword = keys.getProperty("keyPassword")
+                   storeFile = keys.getProperty("storeFile")?.let { file(it) }
+                   storePassword = keys.getProperty("storePassword")
+               }
+           }
+       }
+
+       flavorDimensions += "default"
        productFlavors {
            create("staging") {
-               dimension = "environment"
+               dimension = "default"
                applicationIdSuffix = ".staging"
+               signingConfig =
+                   signingConfigs.findByName("staging") ?: signingConfigs.getByName("debug")
            }
            create("production") {
-               dimension = "environment"
+               dimension = "default"
+               signingConfig =
+                   signingConfigs.findByName("production") ?: signingConfigs.getByName("debug")
            }
        }
    }
    ```
 
-2. **Pass the flavor in `build.yml`.** In the `Build release` step of the `build`
-   job, add the flag for the Android targets only:
+   Production keeps the plain application ID, because that is the ID in the stores
+   and it cannot change once published. The same snippet, with the key files and the
+   GitHub environments, is in [`docs/android-signing.md`](docs/android-signing.md).
 
-   ```bash
-   if [[ "$TARGET" != "web" ]]; then
-     args+=(--flavor "$APP_ENV")
-   fi
+2. **Make `staging` the default flavor** so a plain `flutter run` works, in
+   `pubspec.yaml`:
+
+   ```yaml
+   flutter:
+     default-flavor: staging
    ```
 
-   Do the same in the `Build iOS` step if you enable `BUILD_IOS`.
+3. **Read the environment in Dart** with a small helper of your own that treats
+   anything unknown as staging, so a misconfigured build never counts as production
+   (the snippet is in [`docs/environments.md`](docs/environments.md)). The plain
+   `const appEnv = String.fromEnvironment('APP_ENV');` also works.
 
-3. **Update the artifact paths.** With flavors the outputs move, for example
-   `build/app/outputs/flutter-apk/app-staging-release.apk` and
-   `build/app/outputs/bundle/stagingRelease/app-staging-release.aab`. Run
-   `flutter build apk --flavor staging` once in the container, check the printed
-   path, and set the matrix `path:` values in `build.yml` accordingly (the artifact
-   upload fails loudly if a path is wrong).
+4. **Create the keys and the GitHub environments** `staging` and `production`
+   ([`docs/android-signing.md`](docs/android-signing.md)) before the first merge that
+   builds them.
 
-4. **Run it locally.** Add `"args": ["--flavor", "staging"]` to the **Flutter
-   (Android — host emulator)** configuration in `.vscode/launch.json`, or run
-   `flutter run --flavor staging -d host.docker.internal:5555`.
+5. **Run it locally.** `flutter run` starts staging; the production app is
+   `flutter run --flavor production`, and installs next to it.
 
-Keep `APP_ENV` as well: flavors change the app's identity and native resources,
-while the dart-defines keep driving configuration in Dart.
+`build.yml` needs no edit for any of this: it reads the application ID from
+`applicationId`, the file prefix from the `name:` in `pubspec.yaml`, and whether to
+handle Firebase from the Google services plugin in the Gradle file. iOS flavors (Xcode
+schemes) need a Mac and are not covered
+([`docs/environments.md`](docs/environments.md#not-set-up-yet)).
 
 ### 7.6 Backend API contract (optional, per app)
 
@@ -1011,12 +1117,12 @@ flutter-template/
 │   ├── workflows/
 │   │   ├── bootstrap-main.yml        ← creates main from develop in a new project (never in the template)
 │   │   ├── backend-contract.yml      ← opt-in weekly check for a newer backend API contract (variable BACKEND_REPO)
-│   │   ├── build.yml                 ← staging (PR → develop) and production (PR/merge → main) builds
+│   │   ├── build.yml                 ← test builds for PRs; signed staging (develop) and production (main) builds and draft releases
 │   │   ├── ci.yml                    ← pull request validation → "CI passed"
 │   │   ├── image-contract.yml        ← weekly template ↔ image check (template repo only)
 │   │   ├── labels.yml                ← syncs labels.yml to GitHub
 │   │   ├── pr-labels.yml             ← labels a pull request from its title
-│   │   ├── release.yml               ← GitHub Releases with generated notes
+│   │   ├── release.yml               ← calendar-versioned template releases (template repo only; inert in a project)
 │   │   └── setup-flutter-test.yml    ← smoke test of the setup-flutter action (runs only when it changes)
 │   ├── CODE_OF_CONDUCT.md
 │   ├── CODEOWNERS
@@ -1035,8 +1141,9 @@ flutter-template/
 │   ├── settings.json                 ← shared editor settings
 │   └── tasks.json                    ← "Connect host emulator"
 ├── docs/
-│   ├── android-signing.md            ← Play Store signing (per project)
+│   ├── android-signing.md            ← the two signing keys, flavors in Gradle, GitHub environments and secrets
 │   ├── consuming-the-api.md          ← pin the backend API contract, generate the client (optional)
+│   ├── environments.md               ← staging and production: flavors, builds, draft releases
 │   └── github-setup.md               ← every GitHub setting, step by step
 ├── scripts/
 │   ├── connect-emulator.sh           ← connects adb to the host emulator
@@ -1066,17 +1173,17 @@ flutter-template/
 | `swagger_parser.yaml` | Settings of the API client generator (used only when an app connects to a backend) |
 | `.husky/*`, `commitlint.config.mjs` | The git hooks and the commit rules |
 | `package.json`, `pnpm-lock.yaml` | Husky + commitlint only — no app dependencies; Node ≥ 24; pnpm equal to the version the image pre-caches |
-| `.github/workflows/*` | CI, builds, releases, labels (synced and set from the PR title), the weekly image contract check |
+| `.github/workflows/*` | CI, builds (test builds, signed builds, draft releases), the template's releases, labels (synced and set from the PR title), the weekly image contract check |
 | `.github/rulesets/`, `.github/dependabot.yml`, `.github/labels.yml`, `.github/release.yml`, `.github/CODEOWNERS` | Governance as files |
 | `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/`, `.github/CODE_OF_CONDUCT.md`, `SECURITY.md`, `CONTRIBUTING.md` | Community files |
-| `docs/` | GitHub settings guide, Android signing guide and the backend API guide |
+| `docs/` | GitHub settings guide, environments and releases, Android signing guide and the backend API guide |
 | `.vscode/*` | Shared editor settings and the run/debug configurations |
 | `.env.example`, `.editorconfig`, `.gitattributes`, `.gitignore`, `LICENSE`, `CHANGELOG.md`, `repomix.config.json` | Supporting files |
 
 **Not included** (add per project): state management, routing, HTTP, storage and
 Firebase packages (`flutter pub add <package>`; the packages for the optional backend client are
 listed in [`docs/consuming-the-api.md`](docs/consuming-the-api.md)), deployment workflows (targets
-vary), Android signing keys, flavors ([7.5](#75-flavors-optional-per-app)) and iOS signing.
+vary), the Android keystores and flavors (documented, not shipped: [7.5](#75-flavors-staging-and-production-set-up-right-after-flutter-create)), iOS flavors and iOS signing.
 
 ### Shell Aliases
 
@@ -1112,8 +1219,8 @@ All aliases are baked into the base image by `flutter-devcontainer`. A quick ref
 
 | Platform | Build target | Status |
 | --- | --- | --- |
-| Android APK | `flutter build apk` | Included in `build.yml` (staging and production) |
-| Android AAB | `flutter build appbundle` | Included in `build.yml` (staging and production) |
+| Android APK | `flutter build apk` | Included in `build.yml`: test build on pull requests, signed APKs per CPU type on merges (staging and production) |
+| Android AAB | `flutter build appbundle` | Included in `build.yml`: test build on pull requests, signed bundle on merges (staging and production) |
 | Web | `flutter build web` | Included in `build.yml` (staging and production) |
 | iOS | `flutter build ios` | Opt-in unsigned compile check in `build.yml` (`BUILD_IOS`); signing per project; the Simulator can't run in this Linux container |
 | macOS Desktop | `flutter build macos` | Add per project — requires a `macos` runner |
