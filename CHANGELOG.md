@@ -95,6 +95,62 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Changed
 
+- **Breaking for projects that copy the workflows: signed staging and production
+  builds with draft releases.** `build.yml` now follows the branching model end to
+  end (`docs/environments.md`):
+  - pull requests into `develop` and `main` build a staging or production **test**
+    build (APK and AAB matrix, debug key, no secrets, 14 days), as before but with
+    `--flavor`; merges into `develop` and `main` run the **signed** build in the
+    GitHub environment `staging` or `production` (the only job that reads the
+    signing secrets): obfuscated, one APK per CPU type plus the App Bundle, the
+    workflow run number as the build number, the signature verified (3 APKs, 1
+    bundle, never the debug key, optionally against `ANDROID_CERT_SHA256`),
+    `SHA256SUMS.txt`, and the debug symbols as a separate artifact, never in a
+    release;
+  - a new `release-draft` job (the only one with `contents: write`, no secrets)
+    keeps the files in a **draft** release: the rolling "Staging" (tag `staging`,
+    never published) for `develop` and `v<version>` for `main`, which you publish
+    with one click. It finds a draft by tag or title, replaces its files, and
+    leaves a published (immutable) release alone;
+  - the workflow reads the application ID, the file prefix and the use of Firebase
+    from the project, so it still needs no edit; Android jobs and the release job
+    skip with a warning until the project defines the `staging` and `production`
+    flavors, so the first pull request after `flutter create` stays green;
+  - `release.yml` lost its `app-release` job, which would have published the same
+    `v<version>` tag as the draft and made the release immutable before the files
+    were attached; it now only publishes the template's calendar releases and is
+    inert in a project (delete it there);
+  - `docs/android-signing.md` is rewritten for two keys (staging and production, so
+    a leaked staging key cannot sign production), the new `docs/environments.md`
+    describes the flow and the flavor setup, `docs/github-setup.md` and README
+    sections 7.2, 7.3 and 7.5 follow, and `.gitignore` ignores
+    `android/key.*.properties` and `.signing/`.
+
+  To adopt it in an existing project: define the two flavors and the signing
+  configurations (README 7.5), create the `staging` and `production` GitHub
+  environments with their secrets, copy `build.yml`, and delete `release.yml`.
+- `.husky/pre-commit` now runs the checks of CI on every commit instead of only
+  `dart format` on the staged Dart files: the staged files have LF endings, no
+  trailing whitespace (Markdown excepted) and a final newline (the folders
+  `flutter create` writes and `api/openapi.yaml` only need LF), scripts and hooks
+  are executable in Git, then `dart format` (nothing is rewritten),
+  `flutter analyze --fatal-infos` and `flutter test` (skipped without `test/`). It
+  still skips without `pubspec.yaml` and outside the dev container, and takes about
+  10 s on a small app; the README shows how to keep it fast with a `dart_test.yaml`
+  tag for slow tests. The **Scripts and hooks are executable in Git** step of
+  `ci.yml` moved from the template guard to the **Format** job, so it now also
+  runs in a generated project (it is not template-only).
+- Editor and project files for the flavor workflow: `.vscode/launch.json` runs the
+  Android configuration with `--flavor staging` and gains a production one,
+  `.vscode/tasks.json` gains **Run app on emulator** (connect the host emulator,
+  then `flutter run --flavor staging`), and the spell checker moves from a short
+  `cSpell.words` list in `.vscode/settings.json` to `cspell.json` (English, the
+  Dart, Flutter and software dictionaries, `.gitignore` respected, the generated
+  folders ignored) with the project's own words in `.cspell/project-words.txt`.
+  `.env.example` no longer suggests loading a `.env` file with a package at
+  runtime (a file with keys inside the app package is readable by anyone who
+  installs it): it lists the names of build-time values, passed with
+  `--dart-define-from-file`, for the two environments `staging` and `production`.
 - Labels: the **Labels** workflow already runs on the first push of a repository
   created from the template (the first commit contains `.github/labels.yml`), so
   the README and `docs/github-setup.md` now say to check that the labels exist
@@ -186,19 +242,17 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 - `node_modules` moved to a named volume (`node-modules`): on a Windows bind
   mount commitlint took 9.2 s per commit and now takes 0.55 s; `entrypoint.dev.sh`
   fixes the ownership of the new mount point once.
-- Release automation without a bot: `release.yml` gained an `app-release` job
-  that publishes a GitHub Release with generated, label-grouped notes for the
-  version in a project's `pubspec.yaml` (once per version; the Releases page is
-  the changelog, so a project deletes `CHANGELOG.md`). The template keeps its
-  calendar-versioned release. release-please and git-cliff were not adopted:
+- Release automation without a bot: GitHub Releases with generated, label-grouped
+  notes are the changelog, so a project deletes `CHANGELOG.md` (a project's
+  releases are the draft releases of `build.yml`, see the entry on signed builds
+  below). The template keeps its calendar-versioned release in `release.yml`.
+  release-please and git-cliff were not adopted:
   they need Actions to open pull requests (disabled in `docs/github-setup.md`),
   their pull requests would not trigger **CI passed** with `GITHUB_TOKEN`, and
   they would conflict with the rule that only `develop` may target `main`.
-- `docs/android-signing.md` documents Android release signing (keystore in a
-  `production` environment limited to `main`, a signing job for pushes to
-  `main`, a Gradle snippet that falls back to the debug key), and `build.yml`
-  gained an opt-in unsigned iOS compile check (repository variable
-  `BUILD_IOS=true`, `macos-15`).
+- `build.yml` gained an opt-in unsigned iOS compile check (repository variable
+  `BUILD_IOS=true`, `macos-15`). Android signing is documented in
+  `docs/android-signing.md` (see the entry on signed builds below).
 - `build.yml` builds for the two environments of the branching model, so a
   generated project needs no workflow edits: pull requests into `develop`
   produce staging artifacts, pull requests into `main` and merges to `main`

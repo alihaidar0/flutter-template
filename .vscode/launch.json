@@ -3,13 +3,26 @@
   "configurations": [
     {
       // The emulator runs on the host; the task connects the container's adb to
-      // it first (see scripts/connect-emulator.sh).
+      // it first (see scripts/connect-emulator.sh). Runs the staging flavor, which
+      // you set up after flutter create (README section 7.5).
       "name": "Flutter (Android — host emulator)",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
       "flutterMode": "debug",
       "deviceId": "host.docker.internal:5555",
+      "args": ["--flavor", "staging"],
+      "preLaunchTask": "Connect host emulator"
+    },
+    {
+      // The production app (application ID without a suffix) next to the staging one.
+      "name": "Flutter (Android — host emulator, production)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "deviceId": "host.docker.internal:5555",
+      "args": ["--flavor", "production"],
       "preLaunchTask": "Connect host emulator"
     },
     {
