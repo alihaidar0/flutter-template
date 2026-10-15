@@ -211,23 +211,56 @@ note.
 - **Authentication.** The contract describes the security scheme, but the token handling is the
   app's own code: a Dio `Interceptor` (attach the token, refresh it on `401`) in a folder
   outside `lib/api`, and the token in secure storage, never in the repository.
-- **Errors.** Parse errors in one place instead of handling `DioException` in each screen. The
-  shape is whatever the backend implements: the backend template only recommends RFC 9457
-  problem details (`application/problem+json`, in its `docs/api-conventions.md`) and ships no
-  handler, so do not assume it until the project has one. Until then Django REST framework's
-  defaults apply: `{"detail": "..."}` for most errors and `{"field": ["message"]}` for
-  validation errors. Check the error responses in `api/openapi.yaml` and adapt:
+- **Errors.** The backend template returns one documented body for every error raised inside
+  an API view, so the app parses errors in one place instead of handling `DioException` in each
+  screen:
+
+  ```json
+  {
+    "type": "validation_error",
+    "errors": [
+      { "code": "required", "detail": "This field is required.", "attr": "name" }
+    ]
+  }
+  ```
+
+  `type` is `validation_error`, `client_error` or `server_error`. Each item has a stable `code`
+  (branch on it, not on the text), a human `detail`, and `attr`: the field name (dotted when
+  nested) or `null` for an error that belongs to no field. The contract documents `400`, `401`,
+  `403`, `404` and `429` on every operation, so the generator also produces classes for these
+  bodies. Check the exact shapes in `api/openapi.yaml`.
+
+  An error raised outside the API views (a disallowed host, a URL that is not part of the API)
+  keeps Django's normal HTML or plain-text body. Treat a response that is not this JSON as a
+  generic failure:
 
   ```dart
-  String describeError(DioException e) {
+  /// A message for the user and, for a form, the field errors (attr -> detail).
+  ({String message, Map<String, String> fields}) describeError(DioException e) {
     final response = e.response;
-    if (response == null) return 'Cannot reach the server';
-    final data = response.data;
-    if (data is Map<String, dynamic>) {
-      final message = data['detail'] ?? data['title'];
-      if (message != null) return message.toString();
+    if (response == null) {
+      return (message: 'Cannot reach the server', fields: {});
     }
-    return 'Request failed (${response.statusCode})';
+    final data = response.data;
+    if (data is Map<String, dynamic> && data['errors'] is List) {
+      final items = (data['errors'] as List).whereType<Map<String, dynamic>>();
+      final fields = {
+        for (final item in items)
+          if (item['attr'] is String) item['attr'] as String: '${item['detail']}',
+      };
+      final general = [
+        for (final item in items)
+          if (item['attr'] == null) '${item['detail']}',
+      ];
+      return (
+        message: general.isEmpty
+            ? 'Please check the highlighted fields'
+            : general.first,
+        fields: fields,
+      );
+    }
+    // HTML or plain text from Django, not the API's error body.
+    return (message: 'Request failed (${response.statusCode})', fields: {});
   }
   ```
 
