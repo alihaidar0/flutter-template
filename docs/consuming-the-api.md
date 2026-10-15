@@ -116,6 +116,25 @@ contract. If it fails, run `scripts/generate-api.sh` locally and commit the resu
 A breaking change needs both developers' agreement and the `breaking change` label on the
 backend side before it is released; the release notes are where the app developer sees it.
 
+### Be told about new releases (optional)
+
+The `backend-contract.yml` workflow runs every Monday, compares `api/BACKEND_VERSION` with the
+newest release of the backend and keeps **one** issue open (label `dependencies`) while a newer
+release exists. The issue links the release notes and repeats the steps above; it closes by
+itself once the app is current. An issue rather than a pull request, because Actions may not
+open pull requests in this setup.
+
+It is off until you opt in. In the repository settings (**Settings → Secrets and variables →
+Actions**):
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| Variable | `BACKEND_REPO` | `OWNER/REPO` of the backend. Without it the workflow does nothing |
+| Secret | `BACKEND_READ_TOKEN` | Only for a private backend: a fine-grained token with read-only *Contents* access to that one repository |
+
+A public backend needs no token. If the backend cannot be read, the run fails (red) instead of
+reporting "up to date". You can also start it by hand from **Actions → Backend contract**.
+
 ## 5. Where the app finds the server
 
 ### Never hard-code the base URL
