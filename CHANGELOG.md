@@ -129,6 +129,17 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
   To adopt it in an existing project: define the two flavors and the signing
   configurations (README 7.5), create the `staging` and `production` GitHub
   environments with their secrets, copy `build.yml`, and delete `release.yml`.
+- `.husky/pre-commit` now runs the checks of CI on every commit instead of only
+  `dart format` on the staged Dart files: the staged files have LF endings, no
+  trailing whitespace (Markdown excepted) and a final newline (the folders
+  `flutter create` writes and `api/openapi.yaml` only need LF), scripts and hooks
+  are executable in Git, then `dart format` (nothing is rewritten),
+  `flutter analyze --fatal-infos` and `flutter test` (skipped without `test/`). It
+  still skips without `pubspec.yaml` and outside the dev container, and takes about
+  10 s on a small app; the README shows how to keep it fast with a `dart_test.yaml`
+  tag for slow tests. The **Scripts and hooks are executable in Git** step of
+  `ci.yml` moved from the template guard to the **Format** job, so it now also
+  runs in a generated project (it is not template-only).
 - Labels: the **Labels** workflow already runs on the first push of a repository
   created from the template (the first commit contains `.github/labels.yml`), so
   the README and `docs/github-setup.md` now say to check that the labels exist

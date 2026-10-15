@@ -40,8 +40,9 @@ SDK on your machine:
 
 - **A complete dev environment** — a Dev Container that pulls a pre-built image
   with Flutter, Dart, the Android SDK, Java, Node, Firebase tooling and Chromium.
-- **Git hooks from the first commit** — Conventional Commits, a fast format check
-  and a static-analysis gate before you push.
+- **Git hooks from the first commit** — Conventional Commits, the same checks as CI
+  on every commit (file hygiene, format, analysis, tests) and an analysis gate before
+  you push.
 - **CI/CD that waits for your code** — every check and build is already wired and
   stays dormant until the project has a `pubspec.yaml`, then switches on by itself.
 - **A branch and release model** — `feature → develop → main`, test builds for
@@ -476,7 +477,7 @@ flowchart LR
     subgraph CONT["Dev container"]
         CG["git: VS Code terminal"]
         FW["forwarded ssh-agent"]
-        HOOKS["Husky hooks:<br/>commitlint, dart format, flutter analyze"]
+        HOOKS["Husky hooks:<br/>commitlint, CI-equivalent checks, flutter analyze"]
     end
     WT[("Project folder and .git<br/>bind mount, shared")]
     HG --- WT
@@ -587,7 +588,7 @@ commit and push of a new project are already checked.
 | Hook | When | What it does |
 | --- | --- | --- |
 | `commit-msg` | every `git commit` | commitlint: the message must be a Conventional Commit |
-| `pre-commit` | every `git commit` | `dart format --set-exit-if-changed` on the **staged Dart files only** — fast; skipped until `pubspec.yaml` exists |
+| `pre-commit` | every `git commit` | the same checks as CI, about 10 s on a small app: the staged files have LF endings, no trailing whitespace (Markdown excepted) and a final newline; scripts and hooks are executable in Git; `dart format` (nothing is rewritten); `flutter analyze --fatal-infos`; `flutter test` (skipped without `test/`). Skipped until `pubspec.yaml` exists |
 | `pre-push` | every `git push` | blocks pushing to `main` and `develop`; runs `flutter analyze --fatal-infos` (the same command as CI) before commits leave your machine (skipped without `pubspec.yaml`, and when only branches are deleted) |
 
 ```mermaid
@@ -598,8 +599,8 @@ flowchart TD
     M -- no --> X1["commit rejected"]
     M -- yes --> P{"pubspec.yaml exists?"}
     P -- no --> OK["commit created"]
-    P -- yes --> F["pre-commit: staged Dart files formatted?"]
-    F -- no --> X2["commit rejected: run dart format"]
+    P -- yes --> F["pre-commit: file hygiene, executable scripts,<br/>dart format, analyze, tests pass?"]
+    F -- no --> X2["commit rejected: fix what it reports"]
     F -- yes --> OK
     OK --> PU["git push"]
     PU --> MN{"target is main?"}
@@ -616,6 +617,19 @@ flowchart TD
   applies once the branch exists on the remote, so creating it still works).
 - Hooks are small shell scripts in `.husky/`; `entrypoint.dev.sh` restores their
   execute bit on every container start because Windows strips it.
+- The commit hook is the CI run in miniature, so a commit that would fail CI never
+  leaves your machine. It grows with the app: if the tests become slow, tag the slow
+  ones and skip the tag by default in a `dart_test.yaml` at the project root, so the
+  hook and CI stay fast and you run them on demand
+  (`flutter test --run-skipped --tags render`):
+
+  ```yaml
+  tags:
+    render:
+      skip: "slow check; run with --run-skipped --tags render"
+  ```
+
+  In an emergency `git commit --no-verify` skips the hook; CI checks everything again.
 - A hook is a local convenience; the GitHub rulesets and **CI passed** are the real gate.
 
 ---
@@ -673,10 +687,11 @@ Repository checks (every tier):
 - **Format** — LF endings, no trailing whitespace, final newline (the last two
   skip `android/`, `ios/`, `web/`, `macos/`, `linux/` and `windows/`, which
   `flutter create` writes, and `api/openapi.yaml`, a verbatim copy of the backend's
-  release asset).
+  release asset), and every file of `scripts/`, `.husky/` and `.github/scripts/`
+  is executable in Git (mode `100755`).
 - **Commit messages** — every commit of the pull request is a Conventional Commit.
 - **Node dependency audit** — `pnpm audit` on the lock file; high and critical fail.
-- **Template guard** — template repository only (blank canvas, executable scripts).
+- **Template guard** — template repository only (blank canvas).
 
 ```mermaid
 flowchart LR
@@ -1133,7 +1148,7 @@ flutter-template/
 │   └── zizmor.yml                    ← workflow security linter settings
 ├── .husky/
 │   ├── commit-msg                    ← Conventional Commits
-│   ├── pre-commit                    ← format check of staged Dart files
+│   ├── pre-commit                    ← the CI checks on every commit: file hygiene, format, analyze, test
 │   └── pre-push                      ← blocks main and develop, runs flutter analyze
 ├── .vscode/
 │   ├── extensions.json               ← recommends Dev Containers
@@ -1271,9 +1286,13 @@ ssh -T git@<host-of-origin>  # "Hi <account>!" must name the repository's accoun
 Use one of the valid types (`feat fix docs style refactor perf test build ci chore
 revert wip`), for example `feat(home): add bottom navigation bar`.
 
-### Commit rejected — Dart files are not formatted
+### Commit rejected — a pre-commit check failed
 
-Run `dart format .` (or `fformat`), stage the files again and commit.
+The hook names the failing step. Fix what it reports and commit again: `dart format .`
+(or `fformat`) for formatting, the file names it prints for line endings, trailing
+whitespace or a missing final newline, `git update-index --chmod=+x <file>` for a
+script that is not executable in Git, `flutter analyze --fatal-infos` and `flutter test`
+for the last two steps.
 
 ### Push rejected — `flutter analyze` reported issues
 
