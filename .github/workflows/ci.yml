@@ -4,7 +4,8 @@
 # protection is the aggregate job "CI passed" at the bottom of this file.
 #
 # Repository checks (every tier): source branch, lint (ShellCheck, actionlint,
-# zizmor), format, commit messages, Node dependency audit, template guard.
+# zizmor), format (including the executable bit of scripts and hooks), commit
+# messages, Node dependency audit, template guard.
 #
 # This workflow is copied into every project created from the template, so every
 # job has to pass on a fresh checkout that has no Flutter project yet. The
@@ -218,6 +219,19 @@ jobs:
 
           exit "$status"
 
+      # The compose entrypoint and the Husky hooks are executed directly, so on
+      # Linux and macOS they must carry the executable bit in Git. This runs in
+      # every repository (not only the template), because a project adds scripts
+      # of its own. A folder that does not exist is simply not listed.
+      - name: Scripts and hooks are executable in Git
+        run: |
+          not_executable=$(git ls-files -s scripts .husky .github/scripts | awk '$1 != "100755" { print $4 }')
+          if [ -n "$not_executable" ]; then
+            echo "::error::Not executable in Git (run: git update-index --chmod=+x <file>):"
+            echo "$not_executable"
+            exit 1
+          fi
+
   # Every commit of a pull request must follow Conventional Commits. The Husky
   # commit-msg hook enforces the same rule locally; this catches commits made
   # without the hooks (web editor, other machines).
@@ -302,17 +316,6 @@ jobs:
             fi
           done
           exit "$status"
-
-      # The compose entrypoint and the Husky hooks are executed directly, so on
-      # Linux and macOS they must carry the executable bit in Git.
-      - name: Scripts and hooks are executable in Git
-        run: |
-          not_executable=$(git ls-files -s scripts .husky .github/scripts | awk '$1 != "100755" { print $4 }')
-          if [ -n "$not_executable" ]; then
-            echo "::error::Not executable in Git (run: git update-index --chmod=+x <file>):"
-            echo "$not_executable"
-            exit 1
-          fi
 
   # ── Flutter project checks (Tier 3 unless noted) ─────────────────────────
   flutter-format:
