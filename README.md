@@ -110,10 +110,11 @@ flowchart TD
     C --> D["4. Topic branch<br/>(main is created automatically)"]
     D --> E["5. flutter create in the container terminal"]
     E --> F["6. scripts/pin-image.sh<br/>(freeze image and Flutter version)"]
-    F --> G["7. Replace template files<br/>(checklist in 2.4)"]
-    G --> H["8. Commit, push, open a pull request into develop"]
-    H --> I["9. Apply GitHub settings and rulesets<br/>(section 3)"]
-    I --> J["10. Start an emulator, press F5<br/>(emulator and browser)"]
+    F --> F2["7. Optional: pin the backend API contract<br/>(scripts/sync-api.sh)"]
+    F2 --> G["8. Replace template files<br/>(checklist in 2.4)"]
+    G --> H["9. Commit, push, open a pull request into develop"]
+    H --> I["10. Apply GitHub settings and rulesets<br/>(section 3)"]
+    I --> J["11. Start an emulator, press F5<br/>(emulator and browser)"]
 ```
 
 ### 2.3 Step by step
@@ -207,7 +208,26 @@ writes `environment: flutter: <version>` to `pubspec.yaml` and refreshes
 `pubspec.lock`, so CI and the builds use exactly what you develop with
 ([section 9](#9-versions-the-template-follows-the-newest-apps-freeze)).
 
-**7. Write the app's README and replace the other template files** listed in
+**7. Connect to a backend (optional).** If the app talks to a backend built from the
+Django template, the two developers share one written API contract: an OpenAPI file
+attached to every backend release. Pin a release of it and generate the typed client
+(skip this step for an app without a backend; nothing else depends on it):
+
+```bash
+mkdir -p api && echo 'OWNER/my_backend' > api/BACKEND_REPO     # the backend repository
+flutter pub add dio retrofit json_annotation
+flutter pub add --dev build_runner json_serializable retrofit_generator swagger_parser
+gh auth login                                                 # once; a private backend needs it
+scripts/sync-api.sh v1.0.0                                    # a release of the backend
+```
+
+The script downloads the contract into `api/openapi.yaml`, records the release in
+`api/BACKEND_VERSION` and generates the client into `lib/api`; commit all three. From
+then on CI checks that `lib/api` matches the contract. How to move to a newer release,
+the base URL per environment and how the emulator and the browser reach a backend on your
+machine are in [`docs/consuming-the-api.md`](docs/consuming-the-api.md).
+
+**8. Write the app's README and replace the other template files** listed in
 [2.4](#24-what-to-change-in-the-new-app). The README is generated for you:
 
 ```bash
@@ -222,7 +242,7 @@ started from, and the license line. It refuses to overwrite a README that is no
 longer this guide unless you pass `--force`; run it again after `scripts/pin-image.sh`
 if you ran it before, so the Stack table shows the pinned versions.
 
-**8. Commit and push** the scaffold on the topic branch, then open a pull request
+**9. Commit and push** the scaffold on the topic branch, then open a pull request
 **into `develop`**:
 
 ```bash
@@ -236,11 +256,11 @@ The commit goes through the hooks ([section 6](#6-git-hooks-and-pre-commit-check
 CI on the pull request now runs the full Flutter checks, and `build.yml` produces
 the first **staging** artifacts. Merge with **Create a merge commit**.
 
-**9. Configure the GitHub repository** ([section 3](#3-set-up-the-github-repository)):
+**10. Configure the GitHub repository** ([section 3](#3-set-up-the-github-repository)):
 settings, labels and the rulesets. Do this after the first pull request has run,
 because a ruleset can only require a check that has reported once.
 
-**10. Run it** on your emulator and in your browser:
+**11. Run it** on your emulator and in your browser:
 
 1. Start an emulator on your host (Android Studio → Device Manager).
 2. In VS Code press **F5** and pick **Flutter (Emulator + Browser)**.
@@ -255,7 +275,7 @@ fixes: [section 8](#8-run-on-your-host-emulator-and-browser).
 | `.github/CODEOWNERS` | Replace `@alihaidar0` with your username or team |
 | `.github/dependabot.yml` | Change the `assignees` to you; **uncomment** the `pub` and `docker-compose` blocks (after `flutter create` and `scripts/pin-image.sh`) |
 | `LICENSE` | Replace with your license and copyright holder |
-| `README.md` | Run `scripts/init-readme.sh` (step 7 above) to replace this guide with your app's README, then extend it |
+| `README.md` | Run `scripts/init-readme.sh` (step 8 above) to replace this guide with your app's README, then extend it |
 | `SECURITY.md`, `CONTRIBUTING.md` | Rewrite for your project; they describe the template |
 | `CHANGELOG.md` | **Delete** — your changelog is the GitHub Releases page ([section 7](#73-releases-and-the-changelog)) |
 | `.env.example` | Replace the sample keys with the ones your app needs (never commit a real `.env`) |
@@ -265,9 +285,12 @@ fixes: [section 8](#8-run-on-your-host-emulator-and-browser).
 | `scripts/welcome.sh` | Optional: change the banner title and link |
 | `.github/workflows/image-contract.yml`, `.github/scripts/check-image-contract.sh`, the `release` job of `release.yml`, the `template-guard` job of `ci.yml` | Inert in a project (they only run in the template); delete them if you like |
 | `.github/workflows/bootstrap-main.yml` | Creates `main` from `develop` once; delete it after `main` exists (it then only prints a notice) |
+| `.github/workflows/backend-contract.yml` | Opt-in weekly backend contract check; inert until the repository variable `BACKEND_REPO` is set; delete it if the app has no backend |
+| `swagger_parser.yaml`, `scripts/sync-api.sh`, `scripts/generate-api.sh`, `docs/consuming-the-api.md` | Used only with a backend (step 7 above); delete them if the app has none (the **API client is current** job then never runs anyway) |
 | `docs/` | Keep as a reference or delete |
 | Template version | `scripts/init-readme.sh` writes the template release you started from into your app's README (the newest on the [template's Releases page](https://github.com/alihaidar0/flutter-template/releases); if you run it later, pass the one from the day you created the app, for example `--template-release v2026.10.04`). Later, that page shows what changed since then ([section 7.3](#73-releases-and-the-changelog)) |
 | `lib/`, `test/`, `pubspec.yaml`, `android/`, `ios/`, `web/` | Yours — created by `flutter create`; add packages with `flutter pub add` |
+| `api/`, `lib/api/` | Written by `scripts/sync-api.sh` when you connect a backend (the pinned contract and the generated client); commit both |
 | Application ID (`applicationId` in `android/app/build.gradle.kts`, `PRODUCT_BUNDLE_IDENTIFIER` in `ios/Runner.xcodeproj/project.pbxproj`) | Decide it before the first commit; with an underscore in the project name Android and iOS differ, so set both to the same underscore-free value (step 5 above). The Android ID cannot change after publishing |
 
 Nothing else needs editing: the workflows, hooks, Dev Container and VS Code
@@ -312,6 +335,7 @@ flowchart TD
 | Code security | Private vulnerability reporting | On |
 | Code security | CodeQL default setup | On, language **Actions** (CodeQL does not cover Dart) |
 | Actions → Variables (optional) | `BUILD_IOS` | `true` to add the unsigned iOS compile check |
+| Actions → Variables / Secrets (optional) | `BACKEND_REPO` / `BACKEND_READ_TOKEN` | `OWNER/REPO` of the backend to turn on the weekly contract check ([7.6](#76-backend-api-contract-optional-per-app)); the secret is a read-only fine-grained token, only for a private backend |
 | Environments (optional) | `production` | Restricted to `main`; holds signing secrets ([`docs/android-signing.md`](docs/android-signing.md)) |
 
 With the GitHub CLI, from the repository root (replace `OWNER/REPO`):
@@ -618,7 +642,8 @@ Repository checks (every tier):
 - **Lint** — ShellCheck for the scripts and hooks; actionlint and zizmor for the workflows.
 - **Format** — LF endings, no trailing whitespace, final newline (the last two
   skip `android/`, `ios/`, `web/`, `macos/`, `linux/` and `windows/`, which
-  `flutter create` writes).
+  `flutter create` writes, and `api/openapi.yaml`, a verbatim copy of the backend's
+  release asset).
 - **Commit messages** — every commit of the pull request is a Conventional Commit.
 - **Node dependency audit** — `pnpm audit` on the lock file; high and critical fail.
 - **Template guard** — template repository only (blank canvas, executable scripts).
@@ -629,10 +654,12 @@ flowchart LR
     DET --> FA["flutter-analyze"]
     DET --> AU["flutter-audit"]
     DET --> DR["flutter-doctor"]
+    DET --> AC["api-client<br/>only with api/openapi.yaml"]
     FF --> FT["flutter-test"]
     FA --> FT
     FT --> G["CI passed"]
     AU --> G
+    AC --> G
     DR --> G
     R["repository checks"] --> G
 ```
@@ -643,6 +670,7 @@ flowchart LR
 | `flutter-analyze` | `flutter pub get --enforce-lockfile`, `flutter analyze --fatal-infos` | Static analysis and lints |
 | `flutter-test` | `flutter test --coverage` | Unit and widget tests (skipped without `test/`) |
 | `flutter-audit` | OSV-Scanner on `pubspec.lock` | Known vulnerabilities (Dart has no built-in audit) |
+| `api-client` | `scripts/generate-api.sh`, then `git status lib/api` | The committed API client matches the pinned backend contract (only when `api/openapi.yaml` exists, see [7.6](#76-backend-api-contract-optional-per-app)) |
 | `flutter-doctor` | `flutter doctor -v` | Environment sanity |
 
 **CI passed** is the single required status check. It always runs, fails if any
@@ -795,6 +823,29 @@ drives everything:
 Keep `APP_ENV` as well: flavors change the app's identity and native resources,
 while the dart-defines keep driving configuration in Dart.
 
+### 7.6 Backend API contract (optional, per app)
+
+An app and its Django backend agree on the API through **one written contract**, not through
+chat: the backend generates an OpenAPI file from its code and attaches it to every release
+(`openapi.yaml`). The app pins a release of it and generates its client from the pinned file,
+so the two always build against a known, reviewable version.
+
+| Piece | What it does |
+| --- | --- |
+| `scripts/sync-api.sh vX.Y.Z` | Downloads the release's contract with the GitHub CLI, verifies it against the release attestation (the backend template requires immutable releases), writes `api/openapi.yaml` and `api/BACKEND_VERSION`, and regenerates the client |
+| `scripts/generate-api.sh` | Regenerates `lib/api` (`swagger_parser`, `build_runner`, `dart format`); the only place that knows the commands |
+| `swagger_parser.yaml` | Generator settings: Retrofit and Dio clients with `json_serializable` models, committed under `lib/api` |
+| **API client is current** (`ci.yml`) | Runs the generator and fails if `lib/api` differs from the commit; skipped on a fresh template and in an app without `api/openapi.yaml`; part of **CI passed** |
+| `backend-contract.yml` | Every Monday, compares `api/BACKEND_VERSION` with the backend's newest release and keeps one `dependencies` issue open while a newer one exists; does nothing until the repository variable `BACKEND_REPO` is set; not part of **CI passed** |
+
+The pinned file only changes in a pull request, so the app moves to a new backend release
+deliberately: read the release notes (`breaking change` entries), run the script with the new
+tag, let `flutter analyze` show what changed. The full guide, including the base URL per
+environment and how the Android emulator (`10.0.2.2`) and the browser (`localhost`) reach a
+backend on your machine, is [`docs/consuming-the-api.md`](docs/consuming-the-api.md). The
+working agreement between the two developers is in the backend repository
+([`docs/api-collaboration.md`](https://github.com/alihaidar0/django-template/blob/main/docs/api-collaboration.md)).
+
 ---
 
 ## 8. Run on your host: emulator and browser
@@ -812,6 +863,11 @@ host (Android Studio → Device Manager), then in VS Code press **F5** and pick:
 From a terminal the equivalents are `flutter run -d host.docker.internal:5555` and
 `frunw`. Web needs no emulator, adb or firewall setup, which makes it the fastest
 loop when Android-specific behaviour is not what you are testing.
+
+The app runs on the emulator or in the browser, so a backend on your machine is reached
+through the host (`http://10.0.2.2:8000` from the emulator, `http://localhost:8000` from the
+browser), never through `host.docker.internal`, which is only for adb
+([`docs/consuming-the-api.md`](docs/consuming-the-api.md#5-where-the-app-finds-the-server)).
 
 ```mermaid
 sequenceDiagram
@@ -954,6 +1010,7 @@ flutter-template/
 │   │   └── check-image-contract.sh   ← compares the template with the dev image
 │   ├── workflows/
 │   │   ├── bootstrap-main.yml        ← creates main from develop in a new project (never in the template)
+│   │   ├── backend-contract.yml      ← opt-in weekly check for a newer backend API contract (variable BACKEND_REPO)
 │   │   ├── build.yml                 ← staging (PR → develop) and production (PR/merge → main) builds
 │   │   ├── ci.yml                    ← pull request validation → "CI passed"
 │   │   ├── image-contract.yml        ← weekly template ↔ image check (template repo only)
@@ -979,17 +1036,21 @@ flutter-template/
 │   └── tasks.json                    ← "Connect host emulator"
 ├── docs/
 │   ├── android-signing.md            ← Play Store signing (per project)
+│   ├── consuming-the-api.md          ← pin the backend API contract, generate the client (optional)
 │   └── github-setup.md               ← every GitHub setting, step by step
 ├── scripts/
 │   ├── connect-emulator.sh           ← connects adb to the host emulator
 │   ├── entrypoint.dev.sh             ← fixes hook permissions and volume ownership on start
+│   ├── generate-api.sh               ← regenerates lib/api from the pinned contract (optional)
 │   ├── init-readme.sh                ← replaces this guide with the README of an app
 │   ├── pin-image.sh                  ← freezes the image and Flutter version of an app
 │   ├── pin-ssh-key.sh                ← pins the SSH key of the repository's GitHub account
+│   ├── sync-api.sh                   ← pins a backend release's API contract and generates the client (optional)
 │   └── welcome.sh                    ← banner, hook self-heal, SSH key pin, adb connect
 ├── .editorconfig · .env.example · .gitattributes · .gitignore
 ├── CHANGELOG.md · CONTRIBUTING.md · LICENSE · README.md · SECURITY.md
 ├── commitlint.config.mjs
+├── swagger_parser.yaml               ← API client generator settings (inert until an app pins a contract)
 ├── docker-compose.yml                ← starts the container, mounts the project and caches
 ├── package.json · pnpm-lock.yaml · pnpm-workspace.yaml   ← Husky + commitlint only
 └── repomix.config.json               ← single-file repository snapshot config
@@ -1001,18 +1062,20 @@ flutter-template/
 | --- | --- |
 | `.devcontainer/devcontainer.json` | Dev container config: pre-built image, forwards port 8080, installs extensions, declares Codespaces host requirements |
 | `docker-compose.yml` | Starts the container, mounts the project and named volumes, resolves the host gateway |
-| `scripts/*.sh` | Entrypoint, banner and hook self-heal, emulator connection, image pinning, SSH key pinning, app README generation |
+| `scripts/*.sh` | Entrypoint, banner and hook self-heal, emulator connection, image pinning, SSH key pinning, app README generation, and the optional backend contract sync and client generation |
+| `swagger_parser.yaml` | Settings of the API client generator (used only when an app connects to a backend) |
 | `.husky/*`, `commitlint.config.mjs` | The git hooks and the commit rules |
 | `package.json`, `pnpm-lock.yaml` | Husky + commitlint only — no app dependencies; Node ≥ 24; pnpm equal to the version the image pre-caches |
 | `.github/workflows/*` | CI, builds, releases, labels (synced and set from the PR title), the weekly image contract check |
 | `.github/rulesets/`, `.github/dependabot.yml`, `.github/labels.yml`, `.github/release.yml`, `.github/CODEOWNERS` | Governance as files |
 | `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/`, `.github/CODE_OF_CONDUCT.md`, `SECURITY.md`, `CONTRIBUTING.md` | Community files |
-| `docs/` | GitHub settings guide and Android signing guide |
+| `docs/` | GitHub settings guide, Android signing guide and the backend API guide |
 | `.vscode/*` | Shared editor settings and the run/debug configurations |
 | `.env.example`, `.editorconfig`, `.gitattributes`, `.gitignore`, `LICENSE`, `CHANGELOG.md`, `repomix.config.json` | Supporting files |
 
 **Not included** (add per project): state management, routing, HTTP, storage and
-Firebase packages (`flutter pub add <package>`), deployment workflows (targets
+Firebase packages (`flutter pub add <package>`; the packages for the optional backend client are
+listed in [`docs/consuming-the-api.md`](docs/consuming-the-api.md)), deployment workflows (targets
 vary), Android signing keys, flavors ([7.5](#75-flavors-optional-per-app)) and iOS signing.
 
 ### Shell Aliases

@@ -17,6 +17,34 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- Optional backend API contract workflow for an app whose backend is built from the
+  Django template, inert until an app pins a contract:
+  - `scripts/sync-api.sh vX.Y.Z` downloads the `openapi.yaml` asset of a backend
+    release with the GitHub CLI (or `--commit <sha>` before the first release),
+    checks it against the release attestation (the backend template requires
+    immutable releases; `gh release verify-asset`, and `--require-verified` makes a
+    missing attestation an error), writes `api/openapi.yaml` and `api/BACKEND_VERSION`
+    only after a successful download, and regenerates the client. The backend
+    repository is read from `api/BACKEND_REPO`.
+  - `scripts/generate-api.sh` runs `swagger_parser`, `build_runner` and
+    `dart format` to write the committed client in `lib/api`; `swagger_parser.yaml`
+    configures it (Retrofit and Dio clients with `json_serializable` models).
+  - `ci.yml`: the **API client is current** job regenerates the client and fails
+    when `lib/api` differs from the commit. It needs Tier 3 and `api/openapi.yaml`,
+    is skipped otherwise, and is part of **CI passed**. The whitespace and final
+    newline checks skip `api/openapi.yaml`, a verbatim copy of the release asset.
+  - `backend-contract.yml`: an opt-in weekly check. When the repository variable
+    `BACKEND_REPO` is set, it compares `api/BACKEND_VERSION` with the newest release
+    of the backend and keeps one `dependencies` issue open while a newer release
+    exists (closing it when the app is current). It is skipped without the
+    variable, uses only `actions/checkout` and the preinstalled GitHub CLI, reads a
+    private backend with the optional secret `BACKEND_READ_TOKEN` (read-only), and
+    is not part of **CI passed**.
+  - `docs/consuming-the-api.md` and a new optional step 7 in the README (the later
+    steps are renumbered 8 to 11): one-time setup, pinning and moving to a release,
+    the base URL per environment, and how the Android emulator (`10.0.2.2`) and the
+    browser (`localhost`) reach a backend running on the host. `welcome.sh` shows
+    the pinned release, and `lib/api/**` is marked as generated in `.gitattributes`.
 - `scripts/init-readme.sh`: replaces the template guide in a new app's
   `README.md` with a short README for the app (title from the repository name,
   your description, CI/Build/License badges, platforms, a Stack table read from
