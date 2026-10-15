@@ -55,6 +55,7 @@ Valid types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `
 - **Node stays on 24**, matching the image. `engines.node` and the Dependabot ignore rule must agree.
 - **Shell scripts and hooks use LF line endings** and are executable in Git; a CRLF script fails inside the container.
 - **Workflow hygiene** — least-privilege `permissions:`, `persist-credentials: false` on checkout, `timeout-minutes` on every job, and `${{ }}` values reach `run:` scripts through `env:`, never inline.
+- **Spelling** — `cspell.json` configures the spell checker (VS Code runs it through the Code Spell Checker extension). British and American English are both accepted. Add a genuine project word (a name, a tool, a technical term; never a typo) to `.cspell/project-words.txt`, lowercase and in alphabetical order. To check the whole repository: `npx cspell --no-progress "**"`.
 - **Keep the documentation true** — update `README.md` and `CHANGELOG.md` in the same pull request.
 
 ## Checking your change locally

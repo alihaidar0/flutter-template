@@ -41,16 +41,8 @@
   },
   "[yaml]": {
     "editor.defaultFormatter": "redhat.vscode-yaml"
-  },
+  }
 
-  // ── Spell checker ─────────────────────────────────────────────────────────
-  "cSpell.words": [
-    "commitlint",
-    "corepack",
-    "devcontainer",
-    "flutterfire",
-    "husky",
-    "pnpm",
-    "pubspec"
-  ]
+  // The spell checker is configured in cspell.json; project words go in
+  // .cspell/project-words.txt.
 }
