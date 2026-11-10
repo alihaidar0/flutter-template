@@ -459,7 +459,10 @@ refactor(home): extract HomeScreen to separate file
 **Valid types:** `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci`
 `chore` `revert` `wip`. The type is lower-case; the subject is not sentence-, start-,
 Pascal- or upper-case and has no trailing period. A change that forces others to
-adapt is `feat!:` with a `BREAKING CHANGE:` footer.
+adapt is `feat!:` with a `BREAKING CHANGE:` footer. The only exception to the 100-character
+header limit is the merge commit of a Dependabot pull request
+(`ci|chore|build(deps): bump … (#N)`), whose generated title can be longer; the commits
+inside it are still linted.
 
 ---
 

@@ -377,6 +377,12 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Fixed
 
+- The **Commit messages** check no longer fails a release pull request because of the merge
+  commit of a Dependabot pull request: GitHub names that commit after the generated pull
+  request title, which can pass 100 characters ("... in the github-actions group across 1
+  directory (#59)"). `commitlint.config.mjs` ignores merge commits shaped like
+  `ci|chore|build(deps): bump … (#N)`; the commits inside those pull requests, and every
+  other message, are still linted.
 - `pr-labels.yml` no longer cancels a run that has already started when the
   pull request title or description is edited again; only a run still waiting
   is replaced by the newest one, so editing a pull request right after opening
