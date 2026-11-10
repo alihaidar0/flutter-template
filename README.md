@@ -711,7 +711,8 @@ still commented out, so no package source goes without weekly update pull reques
 newly published advisory in `pnpm-lock.yaml` or `pubspec.lock`, or a new Flutter stable that
 breaks format, analyze or test in a project without a Flutter pin, shows up within a week
 instead of on an unrelated pull request. A failed weekly run opens or updates the issue
-*Weekly CI run failed* (label `bug`); so does a failed weekly **Image contract** run, which
+*Weekly CI run failed* (label `bug`; every failure message and its fix is in
+[`docs/github-setup.md`](docs/github-setup.md) section 9); so does a failed weekly **Image contract** run, which
 also compares the pnpm version with the image (the failure message names the exact fix) and
 checks that the actionlint and zizmor versions pinned in `ci.yml` (and in the local commands
 of this README and `CONTRIBUTING.md`) are not behind a release that is at least 7 days old.

@@ -17,6 +17,9 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- `docs/github-setup.md` section 9: the three weekly checks (CI, Image contract, Backend
+  contract), what each one watches, how to read every failure message and fix it, and the
+  reasons behind the pins, the runner image and the commit lint exception.
 - `ci.yml` also runs every Monday at 06:37 UTC on the default branch (and in
   every project created from the template), so a newly published advisory in
   `pnpm-lock.yaml` or `pubspec.lock`, or a new Flutter stable that breaks a
