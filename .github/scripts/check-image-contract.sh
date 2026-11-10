@@ -20,7 +20,7 @@ image_pnpm="$(grep -oE 'PNPM_VERSION=[0-9][0-9.]*' <<< "${dockerfile}" | head -1
 template_pnpm="$(jq -r '.packageManager // ""' package.json | sed -n 's/^pnpm@//p')"
 [ -n "${image_pnpm}" ] || fail "Could not read PNPM_VERSION from the image's Dockerfile.dev."
 if [ "${template_pnpm}" != "${image_pnpm}" ]; then
-  fail "package.json packageManager is pnpm@${template_pnpm:-<none>} but the image caches pnpm ${image_pnpm}; Corepack would download it on first use."
+  fail "package.json packageManager is pnpm@${template_pnpm:-<none>} but the image caches pnpm ${image_pnpm}; Corepack would download it on first use. Fix: set \"packageManager\": \"pnpm@${image_pnpm}\" in package.json, run 'pnpm install --lockfile-only' and commit both files in a pull request titled 'build(deps): bump pnpm to ${image_pnpm}'."
 fi
 
 # ── Node ─────────────────────────────────────────────────────

@@ -672,8 +672,8 @@ keys, is in [`docs/environments.md`](docs/environments.md) and
 
 ### 7.1 `ci.yml` — pull request checks
 
-Runs on every pull request into `develop` or `main` (and on demand), in **three
-tiers** so it never fails on a fresh template:
+Runs on every pull request into `develop` or `main`, every Monday at 06:37 UTC on
+`develop` (and on demand), in **three tiers** so it never fails on a fresh template:
 
 | Tier | Condition | What runs |
 | --- | --- | --- |
@@ -684,7 +684,9 @@ tiers** so it never fails on a fresh template:
 Repository checks (every tier):
 
 - **Verify source branch** — a pull request into `main` must come from `develop`.
-- **Lint** — ShellCheck for the scripts and hooks; actionlint and zizmor for the workflows.
+- **Lint** — ShellCheck for the scripts and hooks; actionlint and zizmor for the workflows (both
+  pinned with `version:`; the weekly **Image contract** run fails while a pin is behind a release
+  that is at least 7 days old).
 - **Format** — LF endings, no trailing whitespace, final newline (the last two
   skip `android/`, `ios/`, `web/`, `macos/`, `linux/` and `windows/`, which
   `flutter create` writes, and `api/openapi.yaml`, a verbatim copy of the backend's
@@ -693,6 +695,23 @@ Repository checks (every tier):
 - **Commit messages** — every commit of the pull request is a Conventional Commit.
 - **Node dependency audit** — `pnpm audit` on the lock file; high and critical fail.
 - **Template guard** — template repository only (blank canvas).
+- **Flutter sample project** — template repository only, weekly run and on demand (never on
+  a pull request): scaffolds a throwaway project with the newest stable Flutter and runs
+  format, analyze and test on it, so a Flutter release that breaks the generated code is
+  caught here before it reaches a project.
+
+**Reminders:** in a project, *Detect project tier* warns (never fails) while Flutter or the dev
+image is not pinned, and while the `pub` or `docker-compose` block of `.github/dependabot.yml` is
+still commented out, so no package source goes without weekly update pull requests.
+
+**Weekly run:** without a pull request, the same checks run every Monday on `develop`, so a
+newly published advisory in `pnpm-lock.yaml` or `pubspec.lock`, or a new Flutter stable that
+breaks format, analyze or test in a project without a Flutter pin, shows up within a week
+instead of on an unrelated pull request. A failed weekly run opens or updates the issue
+*Weekly CI run failed* (label `bug`); so does a failed weekly **Image contract** run, which
+also compares the pnpm version with the image (the failure message names the exact fix) and
+checks that the actionlint and zizmor versions pinned in `ci.yml` (and in the local commands
+of this README and `CONTRIBUTING.md`) are not behind a release that is at least 7 days old.
 
 ```mermaid
 flowchart LR
@@ -836,7 +855,7 @@ never proposed immediately.
 | Ecosystem | Scope | Notes |
 | --- | --- | --- |
 | `github-actions` | All Actions versions | One weekly group |
-| `npm` | Husky and commitlint | Node 24 frozen — moved manually together with the image |
+| `npm` | Husky and commitlint | Node 24 frozen — moved manually together with the image. `packageManager` (pnpm) is not Dependabot's: it follows the image, and the weekly **Image contract** run reports a difference |
 | `pub` | Dart packages | **Commented out** in the template (needs a `pubspec.yaml`); uncomment in a project |
 | `docker-compose` | The dev image | **Commented out**; uncomment after `scripts/pin-image.sh` |
 
@@ -1390,8 +1409,8 @@ Local checks before opening a pull request:
 ```bash
 bash -n scripts/*.sh
 docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.9.0 scripts/*.sh .github/scripts/*.sh
-docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -no-color
-docker run --rm -v "$PWD:/repo:ro" -w /repo ghcr.io/zizmorcore/zizmor:latest --no-progress --offline .
+docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -no-color
+docker run --rm -v "$PWD:/repo:ro" -w /repo ghcr.io/zizmorcore/zizmor:1.30.1 --no-progress --offline .
 docker compose config --quiet
 ```
 

@@ -3,6 +3,7 @@ adbrestart
 alihaidar
 apksigner
 appbundle
+argjson
 chromedriver
 cicd
 commitlint
@@ -22,6 +23,7 @@ fformat
 fformatcheck
 fget
 flutterfire
+fromdateiso
 frun
 frunc
 frunw
@@ -36,6 +38,7 @@ keygen
 keysize
 keytool
 koalaman
+ltrimstr
 myapp
 oneline
 passwordless

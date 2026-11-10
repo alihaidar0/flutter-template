@@ -104,8 +104,11 @@ updates:
   # Node is intentionally frozen at v24 LTS, matching NODE_VERSION in
   # flutter-devcontainer's Dockerfile.dev. All other npm packages are updated
   # automatically. Bump Node manually (in both repos) when the image moves on.
-  # packageManager (pnpm) is kept equal to the version the image pre-caches; see
-  # .github/workflows/image-contract.yml.
+  # packageManager (pnpm) is not updated here on purpose: it must equal the version
+  # the image pre-caches, not the newest npm release. The weekly Image contract
+  # run (.github/workflows/image-contract.yml) compares the two, opens an issue
+  # when they differ and names the fix: a pull request that sets the image's pnpm
+  # version in package.json and the lock file.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
