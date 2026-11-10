@@ -61,7 +61,7 @@ The default branch is `develop`, the integration branch, so every automatic pull
 
 Every workflow also declares its own top-level `permissions:` block (`contents: read`, or none at all for `release.yml`); the jobs that need more request it explicitly: the `release-draft` job of `build.yml` (`contents: write`, to create the draft release and attach the signed files; it has no access to the signing secrets), `release.yml` (template repository only) and `bootstrap-main.yml` (both `contents: write`, to publish a release and to create the `main` branch), `labels.yml` and `backend-contract.yml` (`issues: write`) and `pr-labels.yml` (`pull-requests: write`, to add labels from the pull request title; it needs the labels to exist; the **Labels** workflow creates them on the first push).
 
-Workflows run on an explicit runner image (`ubuntu-24.04`) rather than `ubuntu-latest`. GitHub moves `ubuntu-latest` to a new Ubuntu release on its own schedule, which changes the toolchain under every job at once. Moving to a newer image is a deliberate edit of the `runs-on:` lines once the build has been verified on it.
+Workflows run on an explicit runner image (`ubuntu-26.04`) rather than `ubuntu-latest`. GitHub moves `ubuntu-latest` to a new Ubuntu release on its own schedule, which changes the toolchain under every job at once. Moving to a newer image is a deliberate edit of the `runs-on:` lines once the build has been verified on it. The 26.04 image defaults to JDK 25, so the Android build jobs select JDK 21 (the one in the dev container) themselves, and `.github/actionlint.yaml` declares the label for actionlint, which does not know it yet.
 
 ## 3. Environments and secrets
 

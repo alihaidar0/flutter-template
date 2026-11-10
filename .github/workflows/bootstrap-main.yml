@@ -31,7 +31,7 @@ jobs:
   create-main:
     name: Create main from develop
     if: ${{ !github.event.repository.is_template && github.ref == 'refs/heads/develop' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: write # create the branch

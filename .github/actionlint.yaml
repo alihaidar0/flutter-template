@@ -1,0 +1,9 @@
+# .github/actionlint.yaml
+#
+# actionlint 1.7.12 does not know the GitHub-hosted label ubuntu-26.04 yet and
+# would report it as unknown. Declaring it here is the documented way to accept a
+# runner label; remove this file once a release of actionlint knows the label
+# (CI pins the version, see the Lint job in ci.yml).
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04

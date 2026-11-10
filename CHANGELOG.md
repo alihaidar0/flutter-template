@@ -114,6 +114,12 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Changed
 
+- Workflows run on `ubuntu-26.04` instead of `ubuntu-24.04` (the iOS compile check stays on
+  `macos-15`). The 26.04 image defaults to JDK 25, so the two Android build jobs of
+  `build.yml` select JDK 21, the version of the dev container, before building.
+  `.github/actionlint.yaml` declares the new label for the pinned actionlint, which does
+  not know it yet; delete the file once a release does. The Android and Web builds are
+  first exercised in a project: run them once on 26.04 before relying on them.
 - The *Image contract* failure for pnpm names the exact fix. Dependabot does not manage
   `packageManager` (it must follow the image, not the newest npm release), so the weekly
   check and its issue are the safeguard.
