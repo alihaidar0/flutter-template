@@ -19,7 +19,8 @@ name: Backend contract
 
 on:
   schedule:
-    - cron: "0 8 * * 1"
+    # Off the top of the hour, when GitHub delays or drops scheduled runs.
+    - cron: "11 8 * * 1"
   workflow_dispatch:
 
 concurrency:
