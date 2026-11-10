@@ -186,4 +186,41 @@ In a project, every merge into `develop` runs **Build** for staging: signed Andr
 
 In the template repository, a promotion publishes a calendar-versioned release (`vYYYY.MM.DD`) through **Release**; a promotion that only changes documentation produces none.
 
-Once a week **Image contract** (template repository only) compares the template with the `flutter-devcontainer` image: the pnpm version Corepack must not download, the Node major, the image name and every documented shell alias. It also fails while the actionlint or zizmor version pinned in `ci.yml` is behind a release that is at least 7 days old. A red run means one of the two repositories moved on (the usual case: the image moved to a newer pnpm, and `packageManager` in `package.json` must follow it; the failure message names the fix); fix it with a topic branch like any other change. A failed scheduled run also opens or updates the issue *Weekly image contract check failed*, and a failed weekly **CI** run (every Monday on `develop`) the issue *Weekly CI run failed*.
+Once a week **Image contract** (template repository only) compares the template with the `flutter-devcontainer` image: the pnpm version Corepack must not download, the Node major, the image name and every documented shell alias. It also fails while the actionlint or zizmor version pinned in `ci.yml` is behind a release that is at least 7 days old. A red run means one of the two repositories moved on (the usual case: the image moved to a newer pnpm, and `packageManager` in `package.json` must follow it; the failure message names the fix); fix it with a topic branch like any other change. A failed scheduled run also opens or updates the issue *Weekly image contract check failed*, and a failed weekly **CI** run (every Monday on `develop`) the issue *Weekly CI run failed*. Section 9 lists every weekly check, each failure message and its fix.
+
+## 9. Weekly checks: what each one watches and what to do when it fails
+
+Three scheduled checks run on Mondays (UTC, on the default branch `develop`; GitHub may start a run late). Nothing here can open a pull request (the settings forbid it), so a failure shows as a red run and, for the first two, as one open issue that later failures comment on. Fix the cause on a topic branch like any other change, then close the issue once a weekly run is green.
+
+| Check | When | Where | Failure issue | What it watches |
+| --- | --- | --- | --- | --- |
+| **CI** | 06:37 | Template and projects | *Weekly CI run failed* (`bug`) | The pull request checks without a pull request: lint, format, `pnpm audit`; in a project also Flutter format, analyze, test and the OSV scan of `pubspec.lock`; in the template also the **Flutter sample project** (a throwaway project made with the newest stable Flutter) |
+| **Image contract** | 07:13 | Template only | *Weekly image contract check failed* (`bug`) | The template against the `flutter-devcontainer` image (pnpm, Node major, image name, documented aliases) and the actionlint and zizmor versions pinned in `ci.yml` |
+| **Backend contract** | 08:11 | A project with the variable `BACKEND_REPO` | *Backend contract: a newer backend release is available* (`dependencies`) | The pinned backend release against the newest one; the issue closes by itself when the app is current |
+
+Run any of them by hand from **Actions → (workflow) → Run workflow** on `develop`; a manual run shows a failure in its log only, the issue is opened by the scheduled run.
+
+### Reading a failure
+
+| Message or failing job | Cause | Fix |
+| --- | --- | --- |
+| `package.json packageManager is pnpm@X but the image caches pnpm Y` | The image moved to a newer pnpm. `packageManager` must equal the image's version, not the newest npm release, so Dependabot does not manage it | Set `"packageManager": "pnpm@Y"` in `package.json`, run `pnpm install --lockfile-only` in the container, commit both files; title `build(deps): bump pnpm to Y` |
+| `package.json engines.node starts at A but the image runs Node B` | The image moved to another Node major | A deliberate migration in both repositories (see the Node warning in `CHANGELOG.md`: Corepack is not bundled from Node 25); never a drive-by edit |
+| `Alias '…' is documented in the README but not defined by the image` | An alias was renamed or removed in the image | Update the README alias table, or restore the alias in the image repository |
+| `docker-compose.yml does not pull …/flutter-devcontainer` | The image name changed | Update `docker-compose.yml` and the places that name the image |
+| `zizmor: ci.yml pins X, but Y was released at least 7 days ago` (same for actionlint) | A pinned linter fell behind a release that passed the 7-day cooldown. No Dependabot ecosystem reads these `version:` inputs, so the check watches them | Read the release notes, change the one `version:` line of that step in `ci.yml` and the matching `docker run` line in `README.md` and `CONTRIBUTING.md`; title `ci(deps): bump zizmor to Y`; let **Lint** run |
+| `ci.yml pins no actionlint version` | The check cannot find a `version: X.Y.Z` input on the linter step | Restore the pinned `version:` input |
+| `Could not read the releases of …` | Warning only: the release feed was unreachable or rate limited | Run the check again |
+| Weekly CI: **Node dependency audit** | A new high or critical advisory in `pnpm-lock.yaml` | Merge the pending Dependabot pull request, or bump the package |
+| Weekly CI: **Dependency audit** (project) | A new advisory in `pubspec.lock` | Update the package; for a reviewed false positive add `ignored_advisories:` to `pubspec.yaml` |
+| Weekly CI: **Flutter format, analyze or test** (project without a Flutter pin) | A new Flutter stable changed a rule or an API | Fix the code, or pin Flutter under `environment: flutter:` in `pubspec.yaml` until you can move |
+| Weekly CI: **Flutter sample project** (template) | A new Flutter stable changed what `flutter create` writes or what analyze reports | Read the log. Nothing in the template is Flutter code, so the cause is a Flutter release (wait for a fix or adapt the job in `ci.yml`), or a transient download error (run it again) |
+| **Lint**: `label "ubuntu-NN.NN" is unknown` | actionlint does not know a new runner label yet | List the label under `self-hosted-runner.labels` in `.github/actionlint.yaml` (delete that file once actionlint knows the label) |
+
+### Choices behind these checks
+
+- **pnpm follows the image, not npm.** The image pre-caches one pnpm version; any other makes Corepack download pnpm on first use in every container.
+- **Linter versions are pinned.** Unpinned, a linter release can fail **Lint** on a day nothing in the repository changed. The weekly check is the only reminder that a pin is behind.
+- **Explicit runner image.** Workflows run on `ubuntu-26.04`, not `ubuntu-latest`. The image defaults to JDK 25, so the two Android jobs of `build.yml` select JDK 21 (the dev container's version) themselves.
+- **Commit messages.** Every commit of a pull request is linted. The merge commit of a Dependabot pull request is not (`commitlint.config.mjs`): GitHub names it after the generated title, which can pass 100 characters. The commits inside it are still linted.
+- **Dependabot reminders.** In a project, **Detect project tier** warns while the `pub` or `docker-compose` block of `.github/dependabot.yml` is commented out; the template cannot enable them itself.
