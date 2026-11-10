@@ -33,9 +33,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-24.04, version: "" }
-          - { os: ubuntu-24.04, version: "3.x" }
-          - { os: ubuntu-24.04, version: "3.35.4" }
+          - { os: ubuntu-26.04, version: "" }
+          - { os: ubuntu-26.04, version: "3.x" }
+          - { os: ubuntu-26.04, version: "3.35.4" }
           - { os: macos-15, version: "" }
     steps:
       - name: Checkout

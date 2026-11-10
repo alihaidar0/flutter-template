@@ -42,7 +42,7 @@ docs(readme): clarify emulator setup
 build(deps): bump the commitlint group
 ```
 
-Valid types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert` `wip`. The type is lower-case, the subject is not sentence-, start-, Pascal- or upper-case and has no trailing period. A change that forces already-generated projects to adapt is breaking: `feat!:` with a `BREAKING CHANGE:` footer.
+Valid types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert` `wip`. The type is lower-case, the subject is not sentence-, start-, Pascal- or upper-case and has no trailing period. A change that forces already-generated projects to adapt is breaking: `feat!:` with a `BREAKING CHANGE:` footer. The only exception to the 100-character header limit is the merge commit of a Dependabot pull request (`ci|chore|build(deps): bump … (#N)`), whose generated title can be longer; the commits inside it are still linted.
 
 ## Making changes
 
@@ -64,8 +64,8 @@ Valid types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `
 bash -n scripts/*.sh
 docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable scripts/*.sh
 docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable --shell=sh .husky/commit-msg .husky/pre-commit .husky/pre-push
-docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -no-color
-docker run --rm -v "$PWD:/repo:ro" -w /repo ghcr.io/zizmorcore/zizmor:latest --no-progress --offline .
+docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -no-color
+docker run --rm -v "$PWD:/repo:ro" -w /repo ghcr.io/zizmorcore/zizmor:1.30.1 --no-progress --offline .
 docker compose config --quiet
 echo "chore: example" | pnpm exec commitlint     # must pass
 echo "bad message" | pnpm exec commitlint        # must fail

@@ -1,5 +1,12 @@
 export default {
   extends: ["@commitlint/config-conventional"],
+  // GitHub names the merge commit of a pull request after its title, and a Dependabot
+  // title can exceed 100 characters ("... in the <group> group across 1 directory (#59)").
+  // The title is generated and cannot be shortened; the commits inside are still linted.
+  ignores: [
+    (message) =>
+      /^(ci|chore|build)\(deps(-dev)?\): bump [^\n]* \(#\d+\)\s*(\n|$)/.test(message),
+  ],
   rules: {
     "type-enum": [
       2,

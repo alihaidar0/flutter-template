@@ -17,6 +17,14 @@
 #
 # Tier 3 plus a pinned backend contract (api/openapi.yaml) also checks that the
 # generated API client in lib/api is current. Projects without a contract skip it.
+#
+# Weekly run (Monday 06:37 UTC, on the default branch `develop`): the same checks
+# without a pull request, so a newly published advisory in pnpm-lock.yaml or
+# pubspec.lock, or a new Flutter stable that breaks format, analyze or test in a
+# project without a Flutter pin, shows up within a week instead of on the next,
+# unrelated pull request. In the template repository the weekly run also scaffolds
+# a throwaway Flutter project (template-sample). A failed weekly run opens or
+# updates the issue "Weekly CI run failed".
 name: CI
 
 on:
@@ -25,6 +33,9 @@ on:
       - main
       - develop
     types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    # Off the top of the hour, when GitHub delays or drops scheduled runs.
+    - cron: "37 6 * * 1"
   workflow_dispatch:
 
 concurrency:
@@ -41,7 +52,7 @@ jobs:
   verify-source-branch:
     name: Verify source branch
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 2
     steps:
       - name: Only develop may target main
@@ -59,7 +70,7 @@ jobs:
   # ── Tier detection ───────────────────────────────────────────────────────
   detect:
     name: Detect project tier
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       tier: ${{ steps.check.outputs.tier }}
@@ -74,6 +85,7 @@ jobs:
             pubspec.lock
             docker-compose.yml
             api/openapi.yaml
+            .github/dependabot.yml
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -136,12 +148,21 @@ jobs:
             if [[ -f "docker-compose.yml" ]] && ! grep -Eq '^[[:space:]]*image:.*@sha256:' docker-compose.yml; then
               echo "::warning title=Dev image is not pinned::Run scripts/pin-image.sh to freeze the dev image in docker-compose.yml."
             fi
+            # Dependabot ships with the pub and docker-compose blocks commented out (the
+            # template has nothing for them to read); a project must switch them on.
+            if ! grep -Eq '^[[:space:]]*-[[:space:]]*package-ecosystem:[[:space:]]*"?pub"?[[:space:]]*$' .github/dependabot.yml; then
+              echo "::warning title=Dependabot does not watch the Dart packages::Uncomment the pub block in .github/dependabot.yml, so pubspec.lock gets weekly update pull requests."
+            fi
+            if [[ -f "docker-compose.yml" ]] && grep -Eq '^[[:space:]]*image:.*@sha256:' docker-compose.yml \
+              && ! grep -Eq '^[[:space:]]*-[[:space:]]*package-ecosystem:[[:space:]]*"?docker-compose"?[[:space:]]*$' .github/dependabot.yml; then
+              echo "::warning title=Dependabot does not watch the dev image::Uncomment the docker-compose block in .github/dependabot.yml, so new dev images arrive as pull requests."
+            fi
           fi
 
   # ── Repository hygiene ───────────────────────────────────────────────────
   lint:
     name: Lint
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -161,24 +182,30 @@ jobs:
           git ls-files -z 'scripts/*.sh' | xargs -0 --no-run-if-empty shellcheck
           git ls-files -z '.husky/*' | xargs -0 --no-run-if-empty shellcheck --shell=sh
 
+      # Both linters are pinned with `version:`: without it the actions run the
+      # newest release, which can fail Lint on a day nothing here changed. The
+      # weekly Image contract run (.github/scripts/check-tool-versions.sh) fails
+      # while a pin is behind a release that is at least 7 days old.
       - name: Actionlint (workflows)
         uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+        with:
+          version: 1.7.12
 
       # Security linter for the workflows themselves (script injection, unpinned
       # actions, excessive permissions, credential persistence). Findings are
       # printed as annotations; nothing is uploaded to code scanning, so no
       # security-events permission is needed.
       - name: Zizmor (workflow security)
-        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
-          version: 1.30.1
+          version: 1.32.0
           advanced-security: false
           annotations: true
 
   # Mirrors the rules in .editorconfig that tooling can verify reliably.
   format:
     name: Format
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -238,7 +265,7 @@ jobs:
   commits:
     name: Commit messages
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
@@ -250,7 +277,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           package-manager-cache: false
@@ -271,7 +298,7 @@ jobs:
   # critical advisories fail the check; lower severities are left to Dependabot.
   node-audit:
     name: Node dependency audit
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
@@ -282,7 +309,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           package-manager-cache: false
@@ -298,7 +325,7 @@ jobs:
   template-guard:
     name: Template guard
     if: github.event.repository.is_template
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -324,7 +351,7 @@ jobs:
     if: >-
       needs.detect.outputs.tier == '3' &&
       (github.event.pull_request.draft == false || github.event_name != 'pull_request')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -345,7 +372,7 @@ jobs:
     if: >-
       needs.detect.outputs.tier == '3' &&
       (github.event.pull_request.draft == false || github.event_name != 'pull_request')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -371,7 +398,7 @@ jobs:
       needs.detect.outputs.tier == '3' &&
       needs.flutter-format.result == 'success' &&
       needs.flutter-analyze.result == 'success'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -399,7 +426,7 @@ jobs:
 
       - name: Upload coverage report
         if: hashFiles('coverage/lcov.info') != ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-report
           path: coverage/lcov.info
@@ -413,7 +440,7 @@ jobs:
     if: >-
       needs.detect.outputs.tier == '3' &&
       (github.event.pull_request.draft == false || github.event_name != 'pull_request')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -422,7 +449,7 @@ jobs:
           persist-credentials: false
 
       - name: Scan pubspec.lock for known vulnerabilities
-        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
         with:
           scan-args: |-
             --lockfile=pubspec.lock
@@ -438,7 +465,7 @@ jobs:
       needs.detect.outputs.tier == '3' &&
       needs.detect.outputs.api_contract == 'true' &&
       (github.event.pull_request.draft == false || github.event_name != 'pull_request')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -475,7 +502,7 @@ jobs:
     name: Flutter doctor
     needs: detect
     if: needs.detect.outputs.tier == '2' || needs.detect.outputs.tier == '3'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -489,6 +516,37 @@ jobs:
           flutter-version: ${{ needs.detect.outputs.flutter_version }}
 
       - run: flutter doctor -v
+
+  # Canary for the template repository: scaffold a throwaway Flutter project with
+  # the newest stable and run the checks a generated project's CI runs on it. The
+  # template ships no Flutter code, so a new Flutter release that breaks `flutter
+  # create` output (format, analyze, test) would otherwise first show up in a
+  # project. It does not run on pull requests, so an upstream change can never
+  # block an unrelated pull request; it runs in the weekly run and on demand, and a
+  # failure opens the weekly issue. Inert in a generated project.
+  template-sample:
+    name: Flutter sample project
+    if: github.event.repository.is_template && github.event_name != 'pull_request'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: ./.github/actions/setup-flutter
+
+      - name: Create the sample project
+        run: flutter create --platforms=android,web --project-name template_sample "$RUNNER_TEMP/sample"
+
+      - name: Format, analyze and test the sample
+        working-directory: ${{ runner.temp }}/sample
+        run: |
+          dart format --set-exit-if-changed .
+          flutter analyze --fatal-infos
+          flutter test
 
   # The one check to require in branch protection. It always runs and fails if
   # any job above failed or was cancelled; jobs skipped by design (a Flutter job
@@ -505,13 +563,14 @@ jobs:
       - commits
       - node-audit
       - template-guard
+      - template-sample
       - flutter-format
       - flutter-analyze
       - flutter-test
       - flutter-audit
       - api-client
       - flutter-doctor
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 2
     steps:
       - name: Evaluate results
@@ -525,3 +584,34 @@ jobs:
               *) echo "::error::At least one required job did not succeed."; exit 1 ;;
             esac
           done
+
+  # A scheduled run has no pull request and no author to notify, so a failure would
+  # only show as a red run in the Actions tab. Keep one open issue instead; each new
+  # failure comments on it. Close it once a weekly run is green again.
+  report-failure:
+    name: Report a failed weekly run
+    needs: ci-passed
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      issues: write   # open the tracking issue, or comment on it
+    steps:
+      - name: Open or update the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: "Weekly CI run failed"
+        run: |
+          body="The weekly CI run failed: ${RUN_URL}"
+          body="${body}"$'\n\n'"Open the run, fix the cause on a topic branch (or merge the pending Dependabot pull request that fixes it), then close this issue."
+          number="$(gh issue list --state open --label bug --limit 100 \
+            --json number,title --jq "map(select(.title == \"$TITLE\")) | .[0].number // empty")"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+            echo "Commented on issue #$number" >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh issue create --title "$TITLE" --label bug --body "$body"
+            echo "Opened the tracking issue" >> "$GITHUB_STEP_SUMMARY"
+          fi

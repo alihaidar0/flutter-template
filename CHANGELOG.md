@@ -17,6 +17,25 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Added
 
+- `ci.yml` also runs every Monday at 06:37 UTC on the default branch (and in
+  every project created from the template), so a newly published advisory in
+  `pnpm-lock.yaml` or `pubspec.lock`, or a new Flutter stable that breaks a
+  project without a Flutter pin, shows up within a week instead of on an
+  unrelated pull request. A failed weekly run opens or updates the issue
+  *Weekly CI run failed* (label `bug`); `image-contract.yml` does the same with
+  *Weekly image contract check failed*.
+- Template repository only: the **Flutter sample project** job of `ci.yml`
+  scaffolds a throwaway project with the newest stable Flutter and runs format,
+  analyze and test on it. It runs in the weekly run and on demand, never on a
+  pull request, so an upstream Flutter change cannot block an unrelated pull
+  request; it is part of **CI passed** and skipped everywhere else.
+- `.github/scripts/check-tool-versions.sh`, run by the weekly **Image contract**
+  run: fails while the actionlint or zizmor version pinned in `ci.yml` is behind
+  a release that is at least 7 days old (the Dependabot cooldown), because no
+  Dependabot ecosystem reads those `version:` inputs. A release feed that cannot
+  be read is a warning.
+- *Detect project tier* warns (never fails) while the `pub` or `docker-compose`
+  block of `.github/dependabot.yml` is still commented out in a project.
 - Optional backend API contract workflow for an app whose backend is built from the
   Django template, inert until an app pins a contract:
   - `scripts/sync-api.sh vX.Y.Z` downloads the `openapi.yaml` asset of a backend
@@ -95,6 +114,20 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Changed
 
+- Workflows run on `ubuntu-26.04` instead of `ubuntu-24.04` (the iOS compile check stays on
+  `macos-15`). The 26.04 image defaults to JDK 25, so the two Android build jobs of
+  `build.yml` select JDK 21, the version of the dev container, before building.
+  `.github/actionlint.yaml` declares the new label for the pinned actionlint, which does
+  not know it yet; delete the file once a release does. The Android and Web builds are
+  first exercised in a project: run them once on 26.04 before relying on them.
+- The *Image contract* failure for pnpm names the exact fix. Dependabot does not manage
+  `packageManager` (it must follow the image, not the newest npm release), so the weekly
+  check and its issue are the safeguard.
+- actionlint is pinned (`version: 1.7.12`) next to the zizmor pin, and the local lint
+  commands in the README and `CONTRIBUTING.md` use the same versions, so a local run
+  and CI agree.
+- *Image contract* and *Backend contract* run at 07:13 and 08:11 UTC instead of on the
+  hour, when GitHub delays or drops scheduled runs.
 - **Breaking for projects that copy the workflows: signed staging and production
   builds with draft releases.** `build.yml` now follows the branching model end to
   end (`docs/environments.md`):
@@ -344,6 +377,12 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Fixed
 
+- The **Commit messages** check no longer fails a release pull request because of the merge
+  commit of a Dependabot pull request: GitHub names that commit after the generated pull
+  request title, which can pass 100 characters ("... in the github-actions group across 1
+  directory (#59)"). `commitlint.config.mjs` ignores merge commits shaped like
+  `ci|chore|build(deps): bump … (#N)`; the commits inside those pull requests, and every
+  other message, are still linted.
 - `pr-labels.yml` no longer cancels a run that has already started when the
   pull request title or description is edited again; only a run still waiting
   is replaced by the newest one, so editing a pull request right after opening

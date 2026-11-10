@@ -19,7 +19,8 @@ name: Backend contract
 
 on:
   schedule:
-    - cron: "0 8 * * 1"
+    # Off the top of the hour, when GitHub delays or drops scheduled runs.
+    - cron: "11 8 * * 1"
   workflow_dispatch:
 
 concurrency:
@@ -33,7 +34,7 @@ jobs:
   check:
     name: Compare with the backend's newest release
     if: vars.BACKEND_REPO != ''
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
