@@ -45,8 +45,14 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 if [ -f "$WORKSPACE/pubspec.yaml" ] && [ -f "$WORKSPACE/pubspec.lock" ]; then
   # ── Tier 3: full project ────────────────────────────────────────────────────
-  APP_NAME=$(grep '^name:' "$WORKSPACE/pubspec.yaml" | awk '{print $2}')
-  FLUTTER_VER=$(flutter --version 2>/dev/null | head -1 | awk '{print $2}')
+  # The banner is a convenience, so both values fall back to "unknown" instead of
+  # failing the start. awk reads all of Flutter's output: with `head -1` the reader
+  # exits early, Flutter (Dart) gets a broken pipe and exits 255, and pipefail then
+  # aborts the script.
+  APP_NAME=$(awk '/^name:/ { print $2; exit }' "$WORKSPACE/pubspec.yaml") || APP_NAME=""
+  : "${APP_NAME:=unknown}"
+  FLUTTER_VER=$(flutter --version 2>/dev/null | awk 'NR == 1 { print $2 }') || FLUTTER_VER=""
+  : "${FLUTTER_VER:=unknown}"
   echo ""
   echo "  ✅  Flutter project detected: ${APP_NAME}"
   echo "  🔧  Flutter ${FLUTTER_VER} · Dart · Android SDK · Web"

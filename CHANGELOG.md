@@ -380,6 +380,12 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Fixed
 
+- `scripts/welcome.sh` no longer fails the dev container start with exit code 255 in a project
+  that has `pubspec.yaml` and `pubspec.lock`. The banner read the Flutter version with
+  `flutter --version | head -1`: `head` closed the pipe, Flutter exited with 255 on the broken
+  pipe, and `set -o pipefail` aborted the script (intermittent, mostly on the first start after
+  the container is recreated). The version and the app name now come from `awk` and fall back to
+  `unknown`, so the banner can never fail the start.
 - The **Commit messages** check no longer fails a release pull request because of the merge
   commit of a Dependabot pull request: GitHub names that commit after the generated pull
   request title, which can pass 100 characters ("... in the github-actions group across 1
