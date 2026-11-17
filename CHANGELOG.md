@@ -117,6 +117,10 @@ follows [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Changed
 
+- Tooling bumps: `packageManager` moves to pnpm 12.21.0 (the version the dev image
+  caches again, which clears the failing weekly image contract check) and the OSV-Scanner
+  action to v2.7.1. Husky 9.1.7, commitlint 21.2.4, the other pinned actions, actionlint
+  1.7.12 and zizmor 1.32.0 were already the newest releases. Node stays on 24.
 - Workflows run on `ubuntu-26.04` instead of `ubuntu-24.04` (the iOS compile check stays on
   `macos-15`). The 26.04 image defaults to JDK 25, so the two Android build jobs of
   `build.yml` select JDK 21, the version of the dev container, before building.
